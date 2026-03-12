@@ -1,0 +1,284 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+
+const features = [
+  {
+    label: "Apple Silicon",
+    title: "Built for the Mac you already use",
+    body: "CoreML acceleration and a lightweight Tauri shell make the app feel closer to a native utility than a browser tab."
+  },
+  {
+    label: "Privacy",
+    title: "Local-first by default",
+    body: "Images do not leave your machine. That matters if you are handling product shots, client images, or unreleased assets."
+  },
+  {
+    label: "Workflow",
+    title: "Simple drag, clean export",
+    body: "Install the model once, drop an image, preview the result, and save a transparent PNG without upload limits or subscription gates."
+  }
+];
+
+const macPoints = [
+  {
+    title: "Frosted surfaces",
+    body: "Use translucent panels, soft borders, and layered depth so the page feels closer to a Mac utility window than a marketing dashboard.",
+    tag: "Visual system"
+  },
+  {
+    title: "Native window cues",
+    body: "Borrow from Finder, Preview, and Quick Look with window chrome, sidebars, and inspector-style layout instead of generic product tiles.",
+    tag: "Structure"
+  },
+  {
+    title: "Desktop-first story",
+    body: "Keep the message anchored on Apple Silicon, local files, and drag-and-drop workflow so the page matches how the app is actually used.",
+    tag: "Messaging"
+  }
+];
+
+const finderItems = [
+  { name: "catalog-shirt.jpg", meta: "12.4 MB" },
+  { name: "creator-headshot.png", meta: "4.8 MB" },
+  { name: "dropbg-export.png", meta: "Ready" }
+];
+---
+
+<BaseLayout>
+  <div class="relative overflow-hidden">
+    <div class="pointer-events-none absolute inset-0 opacity-30 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.08),transparent_38%)]"></div>
+    <div class="pointer-events-none absolute inset-x-0 top-0 h-px bg-white/15"></div>
+
+    <header class="px-4 pt-5 pb-10 md:pb-14">
+      <div class="mx-auto w-full max-w-[1240px]">
+        <nav class="flex flex-col gap-4 rounded-[24px] border border-[color:var(--line)] bg-[rgba(255,255,255,0.05)] px-5 py-4 shadow-[var(--shadow)] backdrop-blur-xl md:flex-row md:items-center md:justify-between">
+          <a class="inline-flex items-center gap-3" href="/">
+            <img class="h-11 w-11 rounded-[14px] border border-white/10 bg-[rgba(255,255,255,0.06)] p-1.5 backdrop-blur" src="/logo.png" alt="DropBG logo" width="44" height="44" />
+            <div>
+              <strong class="block text-base font-semibold">DropBG</strong>
+              <span class="block text-sm text-[color:var(--muted)]">Background remover for macOS</span>
+            </div>
+          </a>
+          <div class="flex flex-wrap items-center gap-3 text-sm text-[color:var(--muted)]">
+            <a class="transition hover:text-white" href="#why-mac">Why Mac</a>
+            <a class="transition hover:text-white" href="#features">Features</a>
+            <a class="transition hover:text-white" href="https://github.com/whereissam/DropBG" target="_blank" rel="noreferrer">GitHub</a>
+            <a class="inline-flex min-h-11 items-center justify-center rounded-full border border-[color:var(--accent)] bg-[linear-gradient(180deg,rgba(115,224,255,0.95),rgba(94,168,255,0.95))] px-4 text-[0.82rem] font-semibold text-[#05101d] shadow-[0_12px_30px_rgba(94,168,255,0.3)] transition duration-200 hover:-translate-y-0.5 hover:brightness-105" href="https://github.com/whereissam/DropBG#getting-started" target="_blank" rel="noreferrer">Get Started</a>
+          </div>
+        </nav>
+
+        <section class="mt-5 grid gap-6 lg:grid-cols-[minmax(0,1.02fr)_minmax(0,0.98fr)]">
+          <div class="rounded-[32px] border border-[color:var(--line)] bg-[linear-gradient(180deg,rgba(255,255,255,0.07),rgba(255,255,255,0.03))] p-6 shadow-[var(--shadow)] backdrop-blur-xl md:p-8">
+            <div class="mb-6 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/6 px-3 py-2 text-[0.78rem] font-medium text-[color:var(--accent)] [animation:reveal-up_0.6s_ease_both]">
+              <span class="h-2 w-2 rounded-full bg-[color:var(--accent)]"></span>
+              Optimized for Apple Silicon
+            </div>
+
+            <h1 class="max-w-[9ch] text-[clamp(3.7rem,10vw,7.4rem)] leading-[0.9] font-semibold [animation:reveal-up_0.78s_ease_both]">
+              A background remover that feels at home on macOS.
+            </h1>
+
+            <p class="mt-6 max-w-[58ch] text-lg leading-8 text-[color:var(--muted)] [animation:reveal-up_0.95s_ease_both]">
+              DropBG is designed like a small Mac utility, not a cloud product in disguise. It runs locally, uses CoreML-backed inference on Apple Silicon, and turns drag-and-drop images into transparent PNGs without sending files anywhere.
+            </p>
+
+            <div class="mt-8 flex flex-wrap gap-3 [animation:reveal-up_1.1s_ease_both]">
+              <a class="inline-flex min-h-12 items-center justify-center rounded-full border border-[color:var(--accent)] bg-[linear-gradient(180deg,rgba(115,224,255,0.95),rgba(94,168,255,0.95))] px-5 text-sm font-semibold text-[#05101d] shadow-[0_12px_30px_rgba(94,168,255,0.3)] transition duration-200 hover:-translate-y-0.5 hover:brightness-105" href="https://github.com/whereissam/DropBG#getting-started" target="_blank" rel="noreferrer">
+                Run Locally
+              </a>
+              <a class="inline-flex min-h-12 items-center justify-center rounded-full border border-white/15 bg-white/6 px-5 text-sm font-semibold text-white transition duration-200 hover:-translate-y-0.5 hover:border-white/30 hover:bg-white/10" href="#features">
+                See Features
+              </a>
+            </div>
+
+            <div class="mt-8 grid gap-3 md:grid-cols-3">
+              <div class="rounded-[20px] border border-white/10 bg-white/5 p-4 backdrop-blur">
+                <p class="text-[0.76rem] text-[color:var(--muted)]">Model</p>
+                <p class="mt-2 text-xl font-semibold">BiRefNet Lite</p>
+              </div>
+              <div class="rounded-[20px] border border-white/10 bg-white/5 p-4 backdrop-blur">
+                <p class="text-[0.76rem] text-[color:var(--muted)]">Acceleration</p>
+                <p class="mt-2 text-xl font-semibold">ONNX + CoreML</p>
+              </div>
+              <div class="rounded-[20px] border border-white/10 bg-white/5 p-4 backdrop-blur">
+                <p class="text-[0.76rem] text-[color:var(--muted)]">Platform</p>
+                <p class="mt-2 text-xl font-semibold">macOS Desktop</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="rounded-[32px] border border-[color:var(--line)] bg-[rgba(255,255,255,0.05)] p-4 shadow-[var(--shadow)] backdrop-blur-xl">
+            <div class="mb-3 flex items-center justify-between rounded-[18px] border border-white/8 bg-[rgba(255,255,255,0.04)] px-4 py-2">
+              <div class="flex items-center gap-2">
+                <span class="h-3 w-3 rounded-full bg-[#ff5f57]"></span>
+                <span class="h-3 w-3 rounded-full bg-[#ffbd2f]"></span>
+                <span class="h-3 w-3 rounded-full bg-[#28c840]"></span>
+              </div>
+              <div class="text-[11px] text-[color:var(--muted)]">DropBG Preview</div>
+              <div class="rounded-full bg-white/6 px-2 py-1 text-[11px] text-[color:var(--muted)]">Quick Look style</div>
+            </div>
+
+            <div class="mb-4 flex items-center gap-2 px-1">
+              <span class="h-3 w-3 rounded-full bg-[#ff5f57]"></span>
+              <span class="h-3 w-3 rounded-full bg-[#ffbd2f]"></span>
+              <span class="h-3 w-3 rounded-full bg-[#28c840]"></span>
+              <span class="ml-3 text-xs text-[color:var(--muted)]">DropBG</span>
+            </div>
+
+            <div class="overflow-hidden rounded-[24px] border border-white/10 bg-[rgba(10,16,28,0.85)]">
+              <div class="border-b border-white/10 bg-white/6 px-4 py-3">
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p class="text-sm font-medium text-white">Background Removal</p>
+                    <p class="text-xs text-[color:var(--muted)]">Native-feeling workflow for product shots and creator assets</p>
+                  </div>
+                  <div class="rounded-full border border-white/10 bg-white/6 px-3 py-1 text-xs text-[color:var(--success)]">
+                    Local Processing
+                  </div>
+                </div>
+              </div>
+
+              <div class="grid gap-4 p-4 lg:grid-cols-[180px_minmax(0,1fr)]">
+                <aside class="rounded-[20px] border border-white/10 bg-white/5 p-3">
+                  <div class="mb-3 flex items-center justify-between">
+                    <p class="text-xs font-medium text-[color:var(--muted)]">Finder</p>
+                    <p class="text-[11px] text-[color:var(--muted)]">Recents</p>
+                  </div>
+                  <div class="mb-4 grid gap-2">
+                    {finderItems.map((item, index) => (
+                      <div class={`rounded-[14px] px-3 py-2 text-sm ${index === 2 ? "bg-[rgba(115,224,255,0.14)] text-white" : "bg-white/6 text-[color:var(--muted)]"}`}>
+                        <div>{item.name}</div>
+                        <div class="mt-1 text-[11px] opacity-80">{item.meta}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <p class="mb-3 text-xs font-medium text-[color:var(--muted)]">Workflow</p>
+                  <div class="grid gap-2">
+                    <div class="rounded-[14px] bg-[rgba(115,224,255,0.12)] px-3 py-2 text-sm text-white">Drop image</div>
+                    <div class="rounded-[14px] bg-white/6 px-3 py-2 text-sm text-[color:var(--muted)]">Preview</div>
+                    <div class="rounded-[14px] bg-white/6 px-3 py-2 text-sm text-[color:var(--muted)]">Save PNG</div>
+                  </div>
+                </aside>
+
+                <div class="space-y-4">
+                  <div class="overflow-hidden rounded-[20px] border border-white/10 bg-[rgba(255,255,255,0.03)]">
+                    <div class="flex items-center justify-between border-b border-white/10 px-4 py-2 text-[11px] text-[color:var(--muted)]">
+                      <span>Quick Look</span>
+                      <span>Transparent Preview</span>
+                    </div>
+                    <img class="w-full" src="/screenshot.png" alt="DropBG app screenshot" />
+                  </div>
+
+                  <div class="grid gap-3 sm:grid-cols-2">
+                    <div class="rounded-[18px] border border-white/10 bg-[rgba(115,224,255,0.08)] p-4">
+                      <p class="text-xs font-medium text-[color:var(--accent)]">Privacy</p>
+                      <p class="mt-2 text-sm leading-6 text-white">Keep source images on-device and avoid cloud upload steps entirely.</p>
+                    </div>
+                    <div class="rounded-[18px] border border-white/10 bg-white/5 p-4">
+                      <p class="text-xs font-medium text-[color:var(--muted)]">Setup once</p>
+                      <p class="mt-2 text-sm leading-6 text-white">Download the model one time, then work offline whenever you want.</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </header>
+
+    <main class="px-4 pb-16 md:pb-20">
+      <div class="mx-auto grid w-full max-w-[1240px] gap-6">
+        <section id="why-mac" class="grid gap-6 lg:grid-cols-[0.92fr_1.08fr]">
+          <div class="rounded-[28px] border border-[color:var(--line)] bg-[rgba(255,255,255,0.05)] p-6 backdrop-blur-xl md:p-8">
+            <p class="text-sm font-medium text-[color:var(--accent)]">Why macOS</p>
+            <h2 class="mt-4 max-w-[11ch] text-[clamp(2rem,4.7vw,3.9rem)] leading-[0.96] font-semibold">
+              The page should feel closer to Finder, Preview, and Quick Look than to a SaaS dashboard.
+            </h2>
+            <p class="mt-5 max-w-[48ch] text-base leading-7 text-[color:var(--muted)]">
+              Since DropBG is explicitly a macOS background remover, the landing page should signal native desktop utility, Apple Silicon speed, and local file handling instead of generic AI-tool aesthetics.
+            </p>
+            <div class="mt-6 grid gap-3 sm:grid-cols-2">
+              <div class="rounded-[20px] border border-white/10 bg-white/5 p-4">
+                <p class="text-xs font-medium text-[color:var(--accent)]">Feels native</p>
+                <p class="mt-2 text-sm leading-6 text-white">Compact panels, calm hierarchy, and interface cues users already understand on macOS.</p>
+              </div>
+              <div class="rounded-[20px] border border-white/10 bg-white/5 p-4">
+                <p class="text-xs font-medium text-[color:var(--accent)]">Reads correctly</p>
+                <p class="mt-2 text-sm leading-6 text-white">The page should communicate “desktop utility” before it communicates “AI product.”</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="grid gap-3">
+            {macPoints.map((point) => (
+              <div class="rounded-[24px] border border-white/10 bg-white/5 p-5 backdrop-blur">
+                <div class="flex items-center justify-between gap-3">
+                  <p class="text-lg font-semibold text-white">{point.title}</p>
+                  <span class="rounded-full border border-white/10 bg-white/6 px-3 py-1 text-[11px] text-[color:var(--muted)]">{point.tag}</span>
+                </div>
+                <p class="mt-4 text-sm leading-7 text-[color:var(--muted)]">{point.body}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section id="features" class="grid gap-4 lg:grid-cols-3">
+          {features.map((feature) => (
+            <article class="rounded-[28px] border border-[color:var(--line)] bg-[rgba(255,255,255,0.05)] p-6 backdrop-blur-xl transition duration-200 hover:-translate-y-1 hover:bg-[rgba(255,255,255,0.07)]">
+              <p class="text-sm font-medium text-[color:var(--accent)]">{feature.label}</p>
+              <h3 class="mt-4 text-[1.75rem] leading-tight font-semibold">{feature.title}</h3>
+              <p class="mt-4 text-base leading-7 text-[color:var(--muted)]">{feature.body}</p>
+            </article>
+          ))}
+        </section>
+
+        <section class="grid gap-6 rounded-[32px] border border-[color:var(--line)] bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.03))] p-6 shadow-[var(--shadow)] backdrop-blur-xl md:grid-cols-[1.05fr_0.95fr] md:p-8">
+          <div>
+            <p class="text-sm font-medium text-[color:var(--accent)]">Desktop-first roadmap</p>
+            <h2 class="mt-4 max-w-[12ch] text-[clamp(2.2rem,4vw,4rem)] leading-[0.95] font-semibold">
+              Finish the Mac utility first, then broaden the workflow.
+            </h2>
+            <p class="mt-5 max-w-[52ch] text-base leading-7 text-[color:var(--muted)]">
+              The repo already points in the right direction: core background removal, batch support, better export handling, then additional background tools and shipping polish.
+            </p>
+          </div>
+          <div class="grid gap-3">
+            <div class="rounded-[22px] border border-white/10 bg-white/5 p-5">
+              <p class="text-sm font-medium text-[color:var(--muted)]">Now</p>
+              <p class="mt-2 text-white">Single-image local workflow, model management, and native-feeling drag and drop.</p>
+            </div>
+            <div class="rounded-[22px] border border-white/10 bg-white/5 p-5">
+              <p class="text-sm font-medium text-[color:var(--muted)]">Next</p>
+              <p class="mt-2 text-white">Batch processing, stronger output naming, and better save-location defaults.</p>
+            </div>
+            <div class="rounded-[22px] border border-white/10 bg-white/5 p-5">
+              <p class="text-sm font-medium text-[color:var(--muted)]">Later</p>
+              <p class="mt-2 text-white">Background replacement, release polish, and broader platform support.</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="grid gap-6 rounded-[32px] border border-[color:var(--line)] bg-[rgba(255,255,255,0.05)] p-6 backdrop-blur-xl md:grid-cols-[1fr_auto] md:items-end md:p-8">
+          <div>
+            <p class="text-sm font-medium text-[color:var(--accent)]">Apple-style tone</p>
+            <h2 class="mt-4 max-w-[12ch] text-[clamp(2.2rem,4vw,3.8rem)] leading-[0.96] font-semibold">
+              Fast, private background removal for the desktop.
+            </h2>
+            <p class="mt-5 max-w-[46ch] text-base leading-7 text-[color:var(--muted)]">
+              No uploads. No subscription workflow. Just a Mac app that removes backgrounds and gets out of the way.
+            </p>
+          </div>
+          <div class="flex flex-wrap gap-3">
+            <a class="inline-flex min-h-12 items-center justify-center rounded-full border border-[color:var(--accent)] bg-[linear-gradient(180deg,rgba(115,224,255,0.95),rgba(94,168,255,0.95))] px-5 text-sm font-semibold text-[#05101d] shadow-[0_12px_30px_rgba(94,168,255,0.3)] transition duration-200 hover:-translate-y-0.5 hover:brightness-105" href="https://github.com/whereissam/DropBG#getting-started" target="_blank" rel="noreferrer">
+              Download from Repo
+            </a>
+            <a class="inline-flex min-h-12 items-center justify-center rounded-full border border-white/15 bg-white/6 px-5 text-sm font-semibold text-white transition duration-200 hover:-translate-y-0.5 hover:border-white/30 hover:bg-white/10" href="https://github.com/whereissam/DropBG/blob/main/docs/TODO.md" target="_blank" rel="noreferrer">
+              View Roadmap
+            </a>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+</BaseLayout>
