@@ -8,6 +8,10 @@
 
 Built with Tauri 2 + React + Rust, optimized for Apple Silicon via CoreML.
 
+<p align="center">
+  <img src="src/assets/screenshot.png" width="600" alt="DropBG Screenshot" />
+</p>
+
 ## Why DropBG?
 
 - **100% local** — images never leave your machine
@@ -41,7 +45,7 @@ Built with Tauri 2 + React + Rust, optimized for Apple Silicon via CoreML.
 
 ```bash
 # clone
-git clone <repo-url> && cd DropBG
+git clone https://github.com/whereissam/DropBG && cd DropBG
 
 # install frontend dependencies
 bun install
