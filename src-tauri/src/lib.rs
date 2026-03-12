@@ -18,9 +18,15 @@ pub fn run() {
             commands::get_output_dir,
             commands::set_output_dir,
             commands::set_model_dir,
+            commands::set_model_variant,
             commands::delete_model,
             commands::download_model,
             commands::remove_background,
+            commands::remove_background_batch,
+            commands::replace_background_color,
+            commands::replace_background_gradient,
+            commands::replace_background_image,
+            commands::auto_crop,
             commands::save_image,
         ])
         .run(tauri::generate_context!())

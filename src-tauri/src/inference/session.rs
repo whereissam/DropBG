@@ -39,4 +39,11 @@ impl SessionState {
         }
         Ok(())
     }
+
+    /// Clear the loaded session so the next `ensure_loaded` will reload from disk.
+    /// Used when switching model variants.
+    pub fn clear(&self) {
+        let mut guard = self.session.lock().unwrap();
+        *guard = None;
+    }
 }

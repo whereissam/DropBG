@@ -1,11 +1,13 @@
 import { useState, useEffect, useCallback } from "react";
-import { checkModelReady, downloadModel, openPathInFinder, getModelInfo } from "./tauri";
+import { checkModelReady, downloadModel, openPathInFinder, getModelInfo, getOutputDir, removeBackgroundBatch } from "./tauri";
 import DropZone from "./components/DropZone";
 import ModelSetup from "./components/ModelSetup";
 import Preview from "./components/Preview";
 import Toolbar from "./components/Toolbar";
 import Settings from "./components/Settings";
 import Toast from "./components/Toast";
+import BatchList, { type BatchItem } from "./components/BatchList";
+import BgReplace from "./components/BgReplace";
 import "./App.css";
 
 type Stage = "loading" | "setup" | "downloading" | "ready";
@@ -26,11 +28,18 @@ export default function App() {
   const [toasts, setToasts] = useState<ToastData[]>([]);
   const [showSettings, setShowSettings] = useState(false);
 
+  // Single image state
   const [originalPath, setOriginalPath] = useState<string | null>(null);
   const [originalUrl, setOriginalUrl] = useState<string | null>(null);
-  const [resultBase64, setResultBase64] = useState<string | null>(null);
+  const [transparentBase64, setTransparentBase64] = useState<string | null>(null); // always the alpha result
+  const [resultBase64, setResultBase64] = useState<string | null>(null); // may have bg applied
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Batch state
+  const [batchItems, setBatchItems] = useState<BatchItem[]>([]);
+  const [batchRunning, setBatchRunning] = useState(false);
+  const [batchOutputDir, setBatchOutputDir] = useState("");
 
   const addToast = useCallback((
     message: string,
@@ -71,7 +80,6 @@ export default function App() {
         await downloadModel();
         setStage("ready");
 
-        // Get model info for the toast action
         const info = await getModelInfo().catch(() => null);
         addToast(
           "Model downloaded! Ready to remove backgrounds.",
@@ -98,10 +106,108 @@ export default function App() {
     if (originalUrl) URL.revokeObjectURL(originalUrl);
     setOriginalPath(null);
     setOriginalUrl(null);
+    setTransparentBase64(null);
     setResultBase64(null);
     setProcessing(false);
     setError(null);
+    setBatchItems([]);
+    setBatchRunning(false);
+    setBatchOutputDir("");
   }
+
+  async function handleProcessSingle(filePath: string) {
+    setOriginalPath(filePath);
+    setProcessing(true);
+    setError(null);
+    setTransparentBase64(null);
+    setResultBase64(null);
+    setOriginalUrl(null);
+
+    try {
+      try {
+        const { readFile } = await import("@tauri-apps/plugin-fs");
+        const bytes = await readFile(filePath);
+        const blob = new Blob([bytes]);
+        setOriginalUrl(URL.createObjectURL(blob));
+      } catch { /* skip preview if fs read fails */ }
+
+      const { removeBackground } = await import("./tauri");
+      const base64 = await removeBackground(filePath);
+      setTransparentBase64(base64);
+      setResultBase64(base64);
+    } catch (e: any) {
+      setError(e.toString());
+    } finally {
+      setProcessing(false);
+    }
+  }
+
+  async function handleProcessBatch(filePaths: string[]) {
+    const outputDir = await getOutputDir().catch(() => "");
+    if (!outputDir) {
+      addToast("No output directory configured. Set one in Settings.", "error");
+      return;
+    }
+
+    setBatchOutputDir(outputDir);
+    setBatchRunning(true);
+    setBatchItems(
+      filePaths.map((p, i) => ({
+        index: i,
+        filename: p.split("/").pop() ?? `image_${i}`,
+        status: "pending" as const,
+      })),
+    );
+
+    try {
+      const { listen } = await import("@tauri-apps/api/event");
+      const unlisten = await listen<{
+        index: number;
+        total: number;
+        filename: string;
+        status: string;
+        error: string | null;
+        output_path: string | null;
+      }>("batch-progress", (e) => {
+        const p = e.payload;
+        setBatchItems((prev) =>
+          prev.map((item) =>
+            item.index === p.index
+              ? {
+                  ...item,
+                  status: p.status as BatchItem["status"],
+                  error: p.error ?? undefined,
+                  outputPath: p.output_path ?? undefined,
+                }
+              : item,
+          ),
+        );
+      });
+
+      try {
+        const results = await removeBackgroundBatch(filePaths, outputDir);
+        const successCount = results.length;
+        const failCount = filePaths.length - successCount;
+
+        addToast(
+          `Batch complete: ${successCount} processed${failCount > 0 ? `, ${failCount} failed` : ""}`,
+          failCount > 0 ? "info" : "success",
+          {
+            label: "Open Folder",
+            onClick: () => openPathInFinder(outputDir).catch(() => {}),
+          },
+        );
+      } finally {
+        unlisten();
+      }
+    } catch (e: any) {
+      addToast("Batch processing failed: " + e.toString(), "error");
+    } finally {
+      setBatchRunning(false);
+    }
+  }
+
+  const isBatchMode = batchItems.length > 0;
 
   return (
     <div className="app-container">
@@ -152,44 +258,36 @@ export default function App() {
           error={downloadError}
           onDownload={startDownload}
         />
+      ) : isBatchMode ? (
+        <BatchList
+          items={batchItems}
+          total={batchItems.length}
+          outputDir={batchOutputDir}
+          onDone={reset}
+        />
       ) : resultBase64 ? (
         <>
           <Toolbar
             originalPath={originalPath}
             resultBase64={resultBase64}
             onReset={reset}
+            onUpdateResult={setResultBase64}
           />
           <Preview originalUrl={originalUrl} resultBase64={resultBase64} />
+          {transparentBase64 && (
+            <BgReplace
+              transparentBase64={transparentBase64}
+              onApply={setResultBase64}
+            />
+          )}
         </>
       ) : (
         <DropZone
           ready={stage === "ready"}
           processing={processing}
           error={error}
-          onProcess={async (filePath) => {
-            setOriginalPath(filePath);
-            setProcessing(true);
-            setError(null);
-            setResultBase64(null);
-            setOriginalUrl(null);
-
-            try {
-              try {
-                const { readFile } = await import("@tauri-apps/plugin-fs");
-                const bytes = await readFile(filePath);
-                const blob = new Blob([bytes]);
-                setOriginalUrl(URL.createObjectURL(blob));
-              } catch { /* skip preview if fs read fails */ }
-
-              const { removeBackground } = await import("./tauri");
-              const base64 = await removeBackground(filePath);
-              setResultBase64(base64);
-            } catch (e: any) {
-              setError(e.toString());
-            } finally {
-              setProcessing(false);
-            }
-          }}
+          onProcess={handleProcessSingle}
+          onProcessBatch={handleProcessBatch}
           onReset={reset}
         />
       )}

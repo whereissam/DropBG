@@ -1,12 +1,16 @@
-import { saveImage, getOutputDir, setOutputDir } from "../tauri";
+import { useState } from "react";
+import { saveImage, autoCrop, getOutputDir, setOutputDir } from "../tauri";
 
 interface Props {
   originalPath: string | null;
   resultBase64: string;
   onReset: () => void;
+  onUpdateResult?: (newBase64: string) => void;
 }
 
-export default function Toolbar({ originalPath, resultBase64, onReset }: Props) {
+export default function Toolbar({ originalPath, resultBase64, onReset, onUpdateResult }: Props) {
+  const [cropping, setCropping] = useState(false);
+
   async function handleSave() {
     try {
       const { save } = await import("@tauri-apps/plugin-dialog");
@@ -20,7 +24,6 @@ export default function Toolbar({ originalPath, resultBase64, onReset }: Props) 
       });
       if (path) {
         await saveImage(resultBase64, path);
-        // Remember the chosen folder as default for next time
         const lastSlash = path.lastIndexOf("/");
         if (lastSlash > 0) {
           const chosenDir = path.substring(0, lastSlash);
@@ -31,6 +34,19 @@ export default function Toolbar({ originalPath, resultBase64, onReset }: Props) 
       }
     } catch (e) {
       console.error("Save error:", e);
+    }
+  }
+
+  async function handleAutoCrop() {
+    if (!onUpdateResult) return;
+    setCropping(true);
+    try {
+      const cropped = await autoCrop(resultBase64);
+      onUpdateResult(cropped);
+    } catch (e) {
+      console.error("Auto-crop error:", e);
+    } finally {
+      setCropping(false);
     }
   }
 
@@ -52,6 +68,13 @@ export default function Toolbar({ originalPath, resultBase64, onReset }: Props) 
         New Image
       </button>
       <div className="spacer" />
+      <button className="btn btn-secondary" onClick={handleAutoCrop} disabled={cropping}>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M6.13 1L6 16a2 2 0 0 0 2 2h15" />
+          <path d="M1 6.13L16 6a2 2 0 0 1 2 2v15" />
+        </svg>
+        {cropping ? "Cropping..." : "Auto-Crop"}
+      </button>
       <button className="btn btn-primary" onClick={handleSave}>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />

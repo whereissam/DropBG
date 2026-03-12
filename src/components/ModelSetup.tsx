@@ -49,11 +49,11 @@ export default function ModelSetup({ downloading, progress, error, onDownload }:
           </div>
           <div className="info-row">
             <span className="info-label">Size</span>
-            <span className="info-value">~200 MB</span>
+            <span className="info-value">{info?.approx_size ?? "~200 MB"}</span>
           </div>
           <div className="info-row">
-            <span className="info-label">File</span>
-            <span className="info-value mono-sm">{info?.filename ?? "birefnet_lite_fp16.onnx"}</span>
+            <span className="info-label">Quality</span>
+            <span className="info-value" style={{ fontSize: "0.8rem", color: "#999" }}>{info?.description ?? "Fast, good for most images"}</span>
           </div>
           <div className="info-row">
             <span className="info-label">Runs On</span>

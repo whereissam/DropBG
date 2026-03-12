@@ -6,6 +6,7 @@ interface Props {
   processing: boolean;
   error: string | null;
   onProcess: (filePath: string) => void;
+  onProcessBatch: (filePaths: string[]) => void;
   onReset: () => void;
 }
 
@@ -16,7 +17,7 @@ function isImageFile(path: string) {
   return IMAGE_EXTS.includes(ext);
 }
 
-export default function DropZone({ ready, processing, error, onProcess, onReset }: Props) {
+export default function DropZone({ ready, processing, error, onProcess, onProcessBatch, onReset }: Props) {
   const [dragOver, setDragOver] = useState(false);
   const [progressStep, setProgressStep] = useState("");
   const [progressPercent, setProgressPercent] = useState(0);
@@ -31,8 +32,13 @@ export default function DropZone({ ready, processing, error, onProcess, onReset 
         const u1 = await listen<{ paths: string[] }>("tauri://drag-drop", (e) => {
           setDragOver(false);
           if (!ready || !e.payload.paths?.length) return;
-          const path = e.payload.paths[0];
-          if (isImageFile(path)) onProcess(path);
+          const imagePaths = e.payload.paths.filter(isImageFile);
+          if (imagePaths.length === 0) return;
+          if (imagePaths.length === 1) {
+            onProcess(imagePaths[0]);
+          } else {
+            onProcessBatch(imagePaths);
+          }
         });
         cleanups.push(u1);
 
@@ -53,7 +59,7 @@ export default function DropZone({ ready, processing, error, onProcess, onReset 
     })();
 
     return () => cleanups.forEach((fn) => fn());
-  }, [ready, onProcess]);
+  }, [ready, onProcess, onProcessBatch]);
 
   // Reset progress when processing starts
   useEffect(() => {
@@ -68,10 +74,16 @@ export default function DropZone({ ready, processing, error, onProcess, onReset 
     try {
       const { open } = await import("@tauri-apps/plugin-dialog");
       const selected = await open({
-        multiple: false,
+        multiple: true,
         filters: [{ name: "Images", extensions: IMAGE_EXTS }],
       });
-      if (selected) onProcess(selected as string);
+      if (!selected) return;
+      const paths = Array.isArray(selected) ? selected : [selected];
+      if (paths.length === 1) {
+        onProcess(paths[0]);
+      } else if (paths.length > 1) {
+        onProcessBatch(paths);
+      }
     } catch (e) {
       console.error("File picker error:", e);
     }
@@ -106,8 +118,8 @@ export default function DropZone({ ready, processing, error, onProcess, onReset 
           <div className="icon">
             <img src={logoSvg} alt="DropBG" width="64" height="64" style={{ borderRadius: 14 }} />
           </div>
-          <h2>Drop an image here</h2>
-          <p>or click to browse</p>
+          <h2>Drop images here</h2>
+          <p>or click to browse — single or multiple</p>
           <p className="formats">PNG, JPEG, WebP supported</p>
           {!ready && <p className="warning">Waiting for model to download...</p>}
         </div>

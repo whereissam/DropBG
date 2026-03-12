@@ -4,6 +4,7 @@ import {
   getOutputDir,
   openPathInFinder,
   setModelDir,
+  setModelVariant,
   setOutputDir,
   deleteModel,
   type ModelInfo,
@@ -25,6 +26,7 @@ export default function Settings({ onClose, onModelDeleted, onToast }: Props) {
   const [info, setInfo] = useState<ModelInfo | null>(null);
   const [outputDir, setOutputDirState] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
+  const [switching, setSwitching] = useState(false);
 
   useEffect(() => {
     loadInfo();
@@ -61,6 +63,25 @@ export default function Settings({ onClose, onModelDeleted, onToast }: Props) {
       }
     } catch (e: any) {
       onToast(e.toString(), "error");
+    }
+  }
+
+  async function handleSwitchVariant() {
+    if (!info) return;
+    setSwitching(true);
+    try {
+      await setModelVariant(info.other_variant);
+      await loadInfo();
+      const updated = await getModelInfo().catch(() => null);
+      if (updated && !updated.exists) {
+        onToast(`Switched to ${updated.name}. Download required.`, "info");
+      } else {
+        onToast(`Switched to ${updated?.name ?? info.other_name}. Ready to use.`, "success");
+      }
+    } catch (e: any) {
+      onToast(e.toString(), "error");
+    } finally {
+      setSwitching(false);
     }
   }
 
@@ -115,29 +136,62 @@ export default function Settings({ onClose, onModelDeleted, onToast }: Props) {
         <div className="settings-section">
           <h3>AI Model</h3>
           {info ? (
-            <div className="settings-info">
-              <div className="si-row">
-                <span className="si-label">Name</span>
-                <span className="si-value">{info.name}</span>
+            <>
+              <div className="settings-info">
+                <div className="si-row">
+                  <span className="si-label">Active</span>
+                  <span className="si-value">{info.name}</span>
+                </div>
+                <div className="si-row">
+                  <span className="si-label">Quality</span>
+                  <span className="si-value" style={{ fontSize: "0.75rem", color: "#999" }}>
+                    {info.description}
+                  </span>
+                </div>
+                <div className="si-row">
+                  <span className="si-label">Status</span>
+                  <span className={`si-value ${info.exists ? "text-green" : "text-yellow"}`}>
+                    {info.exists ? `Downloaded (${formatBytes(info.size_bytes)})` : `Not downloaded (${info.approx_size})`}
+                  </span>
+                </div>
+                <div className="si-row">
+                  <span className="si-label">Location</span>
+                  <span
+                    className="si-value mono clickable"
+                    onClick={handleOpenModelFolder}
+                    title="Open in Finder"
+                  >
+                    {shortenPath(info.model_dir)}
+                    <ExternalLinkIcon />
+                  </span>
+                </div>
               </div>
-              <div className="si-row">
-                <span className="si-label">Status</span>
-                <span className={`si-value ${info.exists ? "text-green" : "text-yellow"}`}>
-                  {info.exists ? `Downloaded (${formatBytes(info.size_bytes)})` : "Not downloaded"}
-                </span>
-              </div>
-              <div className="si-row">
-                <span className="si-label">Location</span>
-                <span
-                  className="si-value mono clickable"
-                  onClick={handleOpenModelFolder}
-                  title="Open in Finder"
+
+              {/* Model variant switcher */}
+              <div className="model-switcher">
+                <div className="model-option active">
+                  <div className="model-option-header">
+                    <span className="model-option-dot active" />
+                    <span className="model-option-name">{info.name}</span>
+                  </div>
+                  <span className="model-option-desc">{info.description}</span>
+                </div>
+                <div
+                  className={`model-option ${switching ? "switching" : "clickable"}`}
+                  onClick={!switching ? handleSwitchVariant : undefined}
                 >
-                  {shortenPath(info.model_dir)}
-                  <ExternalLinkIcon />
-                </span>
+                  <div className="model-option-header">
+                    <span className="model-option-dot" />
+                    <span className="model-option-name">{info.other_name}</span>
+                    {info.other_exists && <span className="model-option-badge">Downloaded</span>}
+                    {!info.other_exists && <span className="model-option-badge needs-dl">{info.other_approx_size}</span>}
+                  </div>
+                  <span className="model-option-desc">
+                    {switching ? "Switching..." : info.other_description}
+                  </span>
+                </div>
               </div>
-            </div>
+            </>
           ) : (
             <p className="settings-loading">Loading...</p>
           )}
