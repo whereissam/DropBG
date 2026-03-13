@@ -19,7 +19,7 @@ impl SessionState {
     }
 
     pub fn ensure_loaded(&self) -> Result<(), String> {
-        let mut guard = self.session.lock().unwrap();
+        let mut guard = self.session.lock().map_err(|e| format!("Session lock poisoned: {e}"))?;
         if guard.is_none() {
             let model_path = downloader::model_path().map_err(|e| e.to_string())?;
             if !model_path.exists() {
@@ -43,7 +43,7 @@ impl SessionState {
     /// Clear the loaded session so the next `ensure_loaded` will reload from disk.
     /// Used when switching model variants.
     pub fn clear(&self) {
-        let mut guard = self.session.lock().unwrap();
+        let mut guard = self.session.lock().unwrap_or_else(|e| e.into_inner());
         *guard = None;
     }
 }
