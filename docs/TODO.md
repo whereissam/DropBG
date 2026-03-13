@@ -40,9 +40,11 @@
 ## Phase 4: Model Quality ✅
 
 - [x] Add full BiRefNet model (~900 MB) as "High Quality" option for complex backgrounds
-- [x] Model selector in Settings (Lite vs Full)
+- [x] Model selector in Settings (multi-model: BiRefNet Lite, BiRefNet Full, BEN2, MODNet)
 - [x] Auto-download selected model variant
 - [x] Allow switching models without restarting (hot-swap via session clear)
+- [x] BEN2 (219 MB) — best on hair & fine edges, MIT license
+- [x] MODNet (13 MB) — lightweight, optimized for portraits & people
 
 ## Phase 5: Background Replacement ✅
 

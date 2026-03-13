@@ -5,6 +5,7 @@ import {
   getUpscaleModelInfo,
   downloadUpscaleModel,
   openPathInFinder,
+  openUrlInBrowser,
   setModelDir,
   setModelVariant,
   setOutputDir,
@@ -73,17 +74,17 @@ export default function Settings({ onClose, onModelDeleted, onToast }: Props) {
     }
   }
 
-  async function handleSwitchVariant() {
+  async function handleSwitchVariant(variantKey: string) {
     if (!info) return;
     setSwitching(true);
     try {
-      await setModelVariant(info.other_variant);
+      await setModelVariant(variantKey);
       await loadInfo();
       const updated = await getModelInfo().catch(() => null);
       if (updated && !updated.exists) {
         onToast(`Switched to ${updated.name}. Download required.`, "info");
       } else {
-        onToast(`Switched to ${updated?.name ?? info.other_name}. Ready to use.`, "success");
+        onToast(`Switched to ${updated?.name ?? variantKey}. Ready to use.`, "success");
       }
     } catch (e: any) {
       onToast(e.toString(), "error");
@@ -206,32 +207,65 @@ export default function Settings({ onClose, onModelDeleted, onToast }: Props) {
                   </div>
                   <span className="model-option-desc">{info.description}</span>
                 </div>
-                <div
-                  className={`model-option ${switching ? "switching" : "clickable"}`}
-                  onClick={!switching ? handleSwitchVariant : undefined}
-                >
-                  <div className="model-option-header">
-                    <span className="model-option-dot" />
-                    <span className="model-option-name">{info.other_name}</span>
-                    {info.other_exists && <span className="model-option-badge">Downloaded</span>}
-                    {!info.other_exists && <span className="model-option-badge needs-dl">{info.other_approx_size}</span>}
+                {info.alternatives.map((alt) => (
+                  <div
+                    key={alt.variant}
+                    className={`model-option ${switching ? "switching" : "clickable"}`}
+                    onClick={!switching ? () => handleSwitchVariant(alt.variant) : undefined}
+                  >
+                    <div className="model-option-header">
+                      <span className="model-option-dot" />
+                      <span className="model-option-name">{alt.name}</span>
+                      {alt.exists && <span className="model-option-badge">Downloaded</span>}
+                      {!alt.exists && alt.manual_download && (
+                        <span className="model-option-badge needs-manual">{alt.approx_size}</span>
+                      )}
+                      {!alt.exists && !alt.manual_download && (
+                        <span className="model-option-badge needs-dl">{alt.approx_size}</span>
+                      )}
+                    </div>
+                    <span className="model-option-desc">
+                      {switching ? "Switching..." : alt.description}
+                    </span>
                   </div>
-                  <span className="model-option-desc">
-                    {switching ? "Switching..." : info.other_description}
-                  </span>
-                </div>
+                ))}
               </div>
             </>
           ) : (
             <p className="settings-loading">Loading...</p>
           )}
 
+          {info && !info.exists && info.manual_download && info.manual_download_url && (
+            <div className="manual-download-hint">
+              <p>This model requires manual download from HuggingFace:</p>
+              <ol>
+                <li>
+                  <span
+                    className="clickable-link"
+                    onClick={() => openUrlInBrowser(info.manual_download_url!).catch(() => {})}
+                  >
+                    Download from HuggingFace <ExternalLinkIcon />
+                  </span>
+                </li>
+                <li>Rename the file to <code>{info.expected_filename}</code></li>
+                <li>
+                  Place it in{" "}
+                  <span
+                    className="clickable-link"
+                    onClick={handleOpenModelFolder}
+                  >
+                    {shortenPath(info.model_dir)} <ExternalLinkIcon />
+                  </span>
+                </li>
+              </ol>
+            </div>
+          )}
           <div className="settings-actions">
             <button className="sa-btn" onClick={handleChangeModelDir}>
               <FolderIcon />
               Change Model Location
             </button>
-            {info && !info.exists && (
+            {info && !info.exists && !info.manual_download && (
               <button
                 className="sa-btn sa-btn-accent"
                 onClick={() => { onModelDeleted(); onClose(); }}

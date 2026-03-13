@@ -6,7 +6,11 @@ use serde::Serialize;
 use std::path::PathBuf;
 use tauri::{AppHandle, Emitter, State};
 
-const MASK_SIZE: u32 = 1024;
+fn current_input_size() -> u32 {
+    downloader::current_variant()
+        .map(|v| v.input_size())
+        .unwrap_or(1024)
+}
 
 #[derive(Clone, Serialize)]
 struct ProcessProgress {
@@ -32,6 +36,19 @@ pub fn check_model_ready() -> bool {
 #[tauri::command]
 pub fn get_model_info() -> Result<downloader::ModelInfo, String> {
     downloader::get_model_info().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn open_url_in_browser(url: String) -> Result<(), String> {
+    // Only allow huggingface.co URLs
+    if !url.starts_with("https://huggingface.co/") {
+        return Err("Only HuggingFace URLs are allowed".to_string());
+    }
+    std::process::Command::new("open")
+        .arg(&url)
+        .spawn()
+        .map_err(|e| format!("Failed to open browser: {e}"))?;
+    Ok(())
 }
 
 #[tauri::command]
@@ -92,11 +109,8 @@ pub fn set_model_dir(new_dir: String) -> Result<(), String> {
 
 #[tauri::command]
 pub fn set_model_variant(variant: String, state: State<'_, SessionState>) -> Result<(), String> {
-    let v = match variant.as_str() {
-        "Lite" => downloader::ModelVariant::Lite,
-        "Full" => downloader::ModelVariant::Full,
-        _ => return Err(format!("Unknown variant: {variant}")),
-    };
+    let v = downloader::ModelVariant::from_key(&variant)
+        .ok_or_else(|| format!("Unknown variant: {variant}"))?;
     let mut config = downloader::load_config().map_err(|e| e.to_string())?;
     if config.model_variant != v {
         config.model_variant = v;
@@ -152,6 +166,8 @@ pub async fn remove_background(
     let session_state = state.inner().clone();
     let app_handle = app.clone();
 
+    let mask_size = current_input_size();
+
     tokio::task::spawn_blocking(move || {
         emit_progress(&app_handle, "Reading image...", 15.0);
         let img = image::open(&path).map_err(|e| format!("Failed to open image: {}", e))?;
@@ -160,7 +176,7 @@ pub async fn remove_background(
 
         emit_progress(&app_handle, "Preprocessing...", 25.0);
         let tensor =
-            crate::inference::preprocess::preprocess(&img).map_err(|e| e.to_string())?;
+            crate::inference::preprocess::preprocess(&img, mask_size).map_err(|e| e.to_string())?;
 
         emit_progress(&app_handle, "Running AI inference...", 40.0);
         let mask_data = {
@@ -172,7 +188,7 @@ pub async fn remove_background(
 
         emit_progress(&app_handle, "Applying mask...", 85.0);
         let result_img = crate::inference::postprocess::apply_mask(
-            &img, &mask_data, MASK_SIZE, orig_w, orig_h,
+            &img, &mask_data, mask_size, orig_w, orig_h,
         )?;
 
         emit_progress(&app_handle, "Encoding PNG...", 92.0);
@@ -204,12 +220,13 @@ struct BatchProgress {
 fn process_single_image(
     session_state: &SessionState,
     path: &PathBuf,
+    mask_size: u32,
 ) -> Result<Vec<u8>, String> {
     let img = image::open(path).map_err(|e| format!("Failed to open image: {}", e))?;
     let orig_w = img.width();
     let orig_h = img.height();
 
-    let tensor = crate::inference::preprocess::preprocess(&img).map_err(|e| e.to_string())?;
+    let tensor = crate::inference::preprocess::preprocess(&img, mask_size).map_err(|e| e.to_string())?;
 
     let mask_data = {
         let mut guard = session_state.session.lock().map_err(|e| format!("Session lock poisoned: {e}"))?;
@@ -218,7 +235,7 @@ fn process_single_image(
     };
 
     let result_img =
-        crate::inference::postprocess::apply_mask(&img, &mask_data, MASK_SIZE, orig_w, orig_h)?;
+        crate::inference::postprocess::apply_mask(&img, &mask_data, mask_size, orig_w, orig_h)?;
 
     let mut buf = Vec::new();
     result_img
@@ -247,6 +264,7 @@ pub async fn remove_background_batch(
     let session_state = state.inner().clone();
     let app_handle = app.clone();
     let total = image_paths.len();
+    let mask_size = current_input_size();
 
     tokio::task::spawn_blocking(move || {
         let mut output_paths = Vec::new();
@@ -277,7 +295,7 @@ pub async fn remove_background_batch(
                 },
             );
 
-            match process_single_image(&session_state, &path) {
+            match process_single_image(&session_state, &path, mask_size) {
                 Ok(png_bytes) => {
                     let out_path = out_dir.join(format!("{}_nobg.png", filename));
                     match std::fs::write(&out_path, &png_bytes) {

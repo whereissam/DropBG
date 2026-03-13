@@ -17,6 +17,7 @@ pub fn run() {
             commands::check_model_ready,
             commands::get_model_info,
             commands::open_path_in_finder,
+            commands::open_url_in_browser,
             commands::get_output_dir,
             commands::set_output_dir,
             commands::set_model_dir,

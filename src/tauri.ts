@@ -3,6 +3,16 @@ async function getInvoke() {
   return invoke;
 }
 
+export interface AlternativeModel {
+  variant: string;
+  name: string;
+  exists: boolean;
+  approx_size: string;
+  description: string;
+  manual_download: boolean;
+  manual_download_url: string | null;
+}
+
 export interface ModelInfo {
   name: string;
   filename: string;
@@ -11,14 +21,13 @@ export interface ModelInfo {
   size_bytes: number;
   model_dir: string;
   model_path: string;
-  variant: string;       // "Lite" | "Full"
+  variant: string;
   approx_size: string;
   description: string;
-  other_variant: string;
-  other_name: string;
-  other_exists: boolean;
-  other_approx_size: string;
-  other_description: string;
+  manual_download: boolean;
+  manual_download_url: string | null;
+  expected_filename: string;
+  alternatives: AlternativeModel[];
 }
 
 export async function checkModelReady(): Promise<boolean> {
@@ -34,6 +43,11 @@ export async function getModelInfo(): Promise<ModelInfo> {
 export async function openPathInFinder(path: string): Promise<void> {
   const invoke = await getInvoke();
   return invoke<void>("open_path_in_finder", { path });
+}
+
+export async function openUrlInBrowser(url: string): Promise<void> {
+  const invoke = await getInvoke();
+  return invoke<void>("open_url_in_browser", { url });
 }
 
 export async function getOutputDir(): Promise<string> {

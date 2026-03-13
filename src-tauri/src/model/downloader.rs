@@ -9,6 +9,9 @@ use std::path::PathBuf;
 pub enum ModelVariant {
     Lite,
     Full,
+    BEN2,
+    RMBG2,
+    MODNet,
 }
 
 impl Default for ModelVariant {
@@ -18,10 +21,23 @@ impl Default for ModelVariant {
 }
 
 impl ModelVariant {
+    pub fn all() -> &'static [ModelVariant] {
+        &[
+            ModelVariant::Lite,
+            ModelVariant::Full,
+            ModelVariant::BEN2,
+            ModelVariant::RMBG2,
+            ModelVariant::MODNet,
+        ]
+    }
+
     pub fn name(&self) -> &str {
         match self {
-            ModelVariant::Lite => "BiRefNet Lite (fp16)",
-            ModelVariant::Full => "BiRefNet Full (fp16)",
+            ModelVariant::Lite => "BiRefNet Lite",
+            ModelVariant::Full => "BiRefNet Full",
+            ModelVariant::BEN2 => "BEN2",
+            ModelVariant::RMBG2 => "RMBG 2.0",
+            ModelVariant::MODNet => "MODNet",
         }
     }
 
@@ -29,6 +45,9 @@ impl ModelVariant {
         match self {
             ModelVariant::Lite => "birefnet_lite_fp16.onnx",
             ModelVariant::Full => "birefnet_full_fp16.onnx",
+            ModelVariant::BEN2 => "ben2_fp16.onnx",
+            ModelVariant::RMBG2 => "rmbg2_fp16.onnx",
+            ModelVariant::MODNet => "modnet_fp16.onnx",
         }
     }
 
@@ -36,20 +55,70 @@ impl ModelVariant {
         match self {
             ModelVariant::Lite => "https://huggingface.co/onnx-community/BiRefNet_lite-ONNX/resolve/main/onnx/model_fp16.onnx",
             ModelVariant::Full => "https://huggingface.co/onnx-community/BiRefNet-ONNX/resolve/main/onnx/model_fp16.onnx",
+            ModelVariant::BEN2 => "https://huggingface.co/onnx-community/BEN2-ONNX/resolve/main/onnx/model_fp16.onnx",
+            ModelVariant::RMBG2 => "https://huggingface.co/briaai/RMBG-2.0/resolve/main/onnx/model_fp16.onnx",
+            ModelVariant::MODNet => "https://huggingface.co/Xenova/modnet/resolve/main/onnx/model_fp16.onnx",
         }
+    }
+
+    /// URL for users to manually download gated models from HuggingFace web UI.
+    pub fn manual_download_url(&self) -> Option<&str> {
+        match self {
+            ModelVariant::RMBG2 => Some("https://huggingface.co/briaai/RMBG-2.0/blob/main/onnx/model_fp16.onnx"),
+            _ => None,
+        }
+    }
+
+    /// Whether this model requires manual download (gated on HuggingFace).
+    pub fn requires_manual_download(&self) -> bool {
+        matches!(self, ModelVariant::RMBG2)
     }
 
     pub fn approx_size(&self) -> &str {
         match self {
             ModelVariant::Lite => "~200 MB",
             ModelVariant::Full => "~900 MB",
+            ModelVariant::BEN2 => "~219 MB",
+            ModelVariant::RMBG2 => "~514 MB",
+            ModelVariant::MODNet => "~13 MB",
         }
     }
 
     pub fn description(&self) -> &str {
         match self {
             ModelVariant::Lite => "Fast, good for most images",
-            ModelVariant::Full => "Best quality, handles complex backgrounds",
+            ModelVariant::Full => "High quality BiRefNet, handles complex backgrounds",
+            ModelVariant::BEN2 => "Best on hair & fine edges, handles complex scenes",
+            ModelVariant::RMBG2 => "BRIA's enhanced BiRefNet, excellent quality (manual download)",
+            ModelVariant::MODNet => "Lightweight, optimized for portraits & people",
+        }
+    }
+
+    pub fn input_size(&self) -> u32 {
+        match self {
+            ModelVariant::MODNet => 512,
+            _ => 1024,
+        }
+    }
+
+    pub fn variant_key(&self) -> &str {
+        match self {
+            ModelVariant::Lite => "Lite",
+            ModelVariant::Full => "Full",
+            ModelVariant::BEN2 => "BEN2",
+            ModelVariant::RMBG2 => "RMBG2",
+            ModelVariant::MODNet => "MODNet",
+        }
+    }
+
+    pub fn from_key(key: &str) -> Option<ModelVariant> {
+        match key {
+            "Lite" => Some(ModelVariant::Lite),
+            "Full" => Some(ModelVariant::Full),
+            "BEN2" => Some(ModelVariant::BEN2),
+            "RMBG2" => Some(ModelVariant::RMBG2),
+            "MODNet" => Some(ModelVariant::MODNet),
+            _ => None,
         }
     }
 }
@@ -153,6 +222,17 @@ fn default_output_dir_string() -> String {
 }
 
 #[derive(Serialize, Clone)]
+pub struct AlternativeModel {
+    pub variant: String,
+    pub name: String,
+    pub exists: bool,
+    pub approx_size: String,
+    pub description: String,
+    pub manual_download: bool,
+    pub manual_download_url: Option<String>,
+}
+
+#[derive(Serialize, Clone)]
 pub struct ModelInfo {
     pub name: String,
     pub filename: String,
@@ -164,12 +244,10 @@ pub struct ModelInfo {
     pub variant: String,
     pub approx_size: String,
     pub description: String,
-    // Info about the other variant
-    pub other_variant: String,
-    pub other_name: String,
-    pub other_exists: bool,
-    pub other_approx_size: String,
-    pub other_description: String,
+    pub manual_download: bool,
+    pub manual_download_url: Option<String>,
+    pub expected_filename: String,
+    pub alternatives: Vec<AlternativeModel>,
 }
 
 fn config_path() -> anyhow::Result<PathBuf> {
@@ -250,12 +328,22 @@ pub fn get_model_info() -> anyhow::Result<ModelInfo> {
         0
     };
 
-    let other = match variant {
-        ModelVariant::Lite => ModelVariant::Full,
-        ModelVariant::Full => ModelVariant::Lite,
-    };
-    let other_path = dir.join(other.filename());
-    let other_exists = other_path.exists();
+    let alternatives: Vec<AlternativeModel> = ModelVariant::all()
+        .iter()
+        .filter(|v| *v != variant)
+        .map(|v| {
+            let alt_path = dir.join(v.filename());
+            AlternativeModel {
+                variant: v.variant_key().to_string(),
+                name: v.name().to_string(),
+                exists: alt_path.exists(),
+                approx_size: v.approx_size().to_string(),
+                description: v.description().to_string(),
+                manual_download: v.requires_manual_download(),
+                manual_download_url: v.manual_download_url().map(|s| s.to_string()),
+            }
+        })
+        .collect();
 
     Ok(ModelInfo {
         name: variant.name().to_string(),
@@ -265,14 +353,13 @@ pub fn get_model_info() -> anyhow::Result<ModelInfo> {
         size_bytes,
         model_dir: dir.to_string_lossy().to_string(),
         model_path: path.to_string_lossy().to_string(),
-        variant: format!("{:?}", variant),
+        variant: variant.variant_key().to_string(),
         approx_size: variant.approx_size().to_string(),
         description: variant.description().to_string(),
-        other_variant: format!("{:?}", other),
-        other_name: other.name().to_string(),
-        other_exists,
-        other_approx_size: other.approx_size().to_string(),
-        other_description: other.description().to_string(),
+        manual_download: variant.requires_manual_download(),
+        manual_download_url: variant.manual_download_url().map(|s| s.to_string()),
+        expected_filename: variant.filename().to_string(),
+        alternatives,
     })
 }
 

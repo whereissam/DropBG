@@ -680,6 +680,33 @@
   line-height: 1.4;
 }
 
+.manual-download-hint {
+  background: rgba(233, 69, 96, 0.08);
+  border: 1px solid rgba(233, 69, 96, 0.2);
+  border-radius: 8px;
+  padding: 0.75rem;
+  margin-top: 0.5rem;
+  font-size: 0.78rem;
+  color: #bbb;
+  line-height: 1.5;
+}
+.manual-download-hint p { margin: 0 0 0.4rem; color: #ddd; }
+.manual-download-hint ol { margin: 0; padding-left: 1.2rem; }
+.manual-download-hint li { margin-bottom: 0.25rem; }
+.manual-download-hint code {
+  background: rgba(255,255,255,0.08);
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+  font-size: 0.72rem;
+}
+.clickable-link {
+  color: #e94560;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.clickable-link:hover { color: #ff6b81; }
+
 .upscale-progress {
   position: relative;
   height: 20px;
@@ -788,6 +815,10 @@
 .model-option-badge.needs-dl {
   background: rgba(236, 198, 102, 0.15);
   color: #ec6;
+}
+.model-option-badge.needs-manual {
+  background: rgba(233, 69, 96, 0.15);
+  color: #e94560;
 }
 .model-option-desc {
   font-size: 0.75rem;
