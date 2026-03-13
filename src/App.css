@@ -412,6 +412,33 @@
 .btn-secondary { background: #0f3460; color: #ccc; }
 .btn-secondary:hover { background: #1a4a7a; }
 
+.upscale-wrapper { position: relative; }
+.scale-menu {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-top: 0.3rem;
+  display: flex;
+  gap: 0.25rem;
+  background: #16213e;
+  border: 1px solid #0f3460;
+  border-radius: 8px;
+  padding: 0.3rem;
+  z-index: 50;
+}
+.scale-option {
+  padding: 0.35rem 0.75rem;
+  background: #0f3460;
+  border: none;
+  border-radius: 6px;
+  color: #ccc;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+.scale-option:hover { background: #e94560; color: white; }
+
 /* ===== Preview ===== */
 .preview-container { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
 .canvas-area {
@@ -651,6 +678,33 @@
   color: #556;
   margin: 0.5rem 0 0;
   line-height: 1.4;
+}
+
+.upscale-progress {
+  position: relative;
+  height: 20px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  overflow: hidden;
+  margin-top: 0.5rem;
+}
+
+.upscale-progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #6c5ce7, #a29bfe);
+  border-radius: 10px;
+  transition: width 0.3s ease;
+}
+
+.upscale-progress-text {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  color: #fff;
+  font-weight: 600;
 }
 
 .settings-actions {

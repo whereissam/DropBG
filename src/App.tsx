@@ -272,6 +272,7 @@ export default function App() {
             resultBase64={resultBase64}
             onReset={reset}
             onUpdateResult={setResultBase64}
+            onToast={addToast}
           />
           <Preview originalUrl={originalUrl} resultBase64={resultBase64} />
           {transparentBase64 && (

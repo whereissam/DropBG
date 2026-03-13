@@ -2,12 +2,15 @@ import { useEffect, useState } from "react";
 import {
   getModelInfo,
   getOutputDir,
+  getUpscaleModelInfo,
+  downloadUpscaleModel,
   openPathInFinder,
   setModelDir,
   setModelVariant,
   setOutputDir,
   deleteModel,
   type ModelInfo,
+  type UpscaleModelInfo,
 } from "../tauri";
 
 interface Props {
@@ -27,10 +30,14 @@ export default function Settings({ onClose, onModelDeleted, onToast }: Props) {
   const [outputDir, setOutputDirState] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [switching, setSwitching] = useState(false);
+  const [upscaleInfo, setUpscaleInfo] = useState<UpscaleModelInfo | null>(null);
+  const [upscaleDownloading, setUpscaleDownloading] = useState(false);
+  const [upscaleProgress, setUpscaleProgress] = useState(0);
 
   useEffect(() => {
     loadInfo();
     getOutputDir().then(setOutputDirState).catch(() => {});
+    getUpscaleModelInfo().then(setUpscaleInfo).catch(() => {});
   }, []);
 
   async function loadInfo() {
@@ -106,6 +113,29 @@ export default function Settings({ onClose, onModelDeleted, onToast }: Props) {
       await openPathInFinder(outputDir);
     } catch (e: any) {
       onToast(e.toString(), "error");
+    }
+  }
+
+  async function handleDownloadUpscale() {
+    setUpscaleDownloading(true);
+    setUpscaleProgress(0);
+    try {
+      const { listen } = await import("@tauri-apps/api/event");
+      const unlisten = await listen<number>("upscale-download-progress", (e) => {
+        setUpscaleProgress(e.payload);
+      });
+      try {
+        await downloadUpscaleModel();
+        const updated = await getUpscaleModelInfo().catch(() => null);
+        setUpscaleInfo(updated);
+        onToast("Upscale model downloaded!", "success");
+      } finally {
+        unlisten();
+      }
+    } catch (e: any) {
+      onToast("Upscale download failed: " + e.toString(), "error");
+    } finally {
+      setUpscaleDownloading(false);
     }
   }
 
@@ -221,6 +251,46 @@ export default function Settings({ onClose, onModelDeleted, onToast }: Props) {
               </button>
             )}
           </div>
+        </div>
+
+        {/* ===== Upscale Model Section ===== */}
+        <div className="settings-section">
+          <h3>AI Upscale</h3>
+          {upscaleInfo ? (
+            <div className="settings-info">
+              <div className="si-row">
+                <span className="si-label">Model</span>
+                <span className="si-value">{upscaleInfo.name}</span>
+              </div>
+              <div className="si-row">
+                <span className="si-label">Status</span>
+                <span className={`si-value ${upscaleInfo.exists ? "text-green" : "text-yellow"}`}>
+                  {upscaleInfo.exists
+                    ? `Downloaded (${formatBytes(upscaleInfo.size_bytes)})`
+                    : `Not downloaded (${upscaleInfo.approx_size})`}
+                </span>
+              </div>
+            </div>
+          ) : (
+            <p className="settings-loading">Loading...</p>
+          )}
+          {upscaleDownloading && (
+            <div className="upscale-progress">
+              <div className="upscale-progress-bar" style={{ width: `${upscaleProgress}%` }} />
+              <span className="upscale-progress-text">{upscaleProgress}%</span>
+            </div>
+          )}
+          <p className="settings-hint">
+            Optional model for AI-powered image upscaling (2x / 4x). Uses Real-ESRGAN.
+          </p>
+          {upscaleInfo && !upscaleInfo.exists && !upscaleDownloading && (
+            <div className="settings-actions">
+              <button className="sa-btn sa-btn-accent" onClick={handleDownloadUpscale}>
+                <DownloadIcon />
+                Download Upscale Model ({upscaleInfo.approx_size})
+              </button>
+            </div>
+          )}
         </div>
 
         {/* ===== Output Section ===== */}

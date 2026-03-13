@@ -1,6 +1,7 @@
 pub mod postprocess;
 pub mod preprocess;
 pub mod session;
+pub mod upscale;
 
 use ndarray::Array4;
 use ort::session::Session;

@@ -4,6 +4,7 @@ mod inference;
 mod model;
 
 use inference::session::SessionState;
+use inference::upscale::UpscaleSessionState;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -11,6 +12,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .manage(SessionState::new())
+        .manage(UpscaleSessionState::new())
         .invoke_handler(tauri::generate_handler![
             commands::check_model_ready,
             commands::get_model_info,
@@ -27,6 +29,9 @@ pub fn run() {
             commands::replace_background_gradient,
             commands::replace_background_image,
             commands::auto_crop,
+            commands::get_upscale_model_info,
+            commands::download_upscale_model,
+            commands::upscale_image,
             commands::save_image,
         ])
         .run(tauri::generate_context!())

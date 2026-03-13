@@ -1,15 +1,18 @@
 import { useState } from "react";
-import { saveImage, autoCrop, getOutputDir, setOutputDir } from "../tauri";
+import { saveImage, autoCrop, upscaleImage, getUpscaleModelInfo, getOutputDir, setOutputDir } from "../tauri";
 
 interface Props {
   originalPath: string | null;
   resultBase64: string;
   onReset: () => void;
   onUpdateResult?: (newBase64: string) => void;
+  onToast?: (msg: string, type: "success" | "error" | "info") => void;
 }
 
-export default function Toolbar({ originalPath, resultBase64, onReset, onUpdateResult }: Props) {
+export default function Toolbar({ originalPath, resultBase64, onReset, onUpdateResult, onToast }: Props) {
   const [cropping, setCropping] = useState(false);
+  const [upscaling, setUpscaling] = useState(false);
+  const [showScaleMenu, setShowScaleMenu] = useState(false);
 
   async function handleSave() {
     try {
@@ -50,6 +53,35 @@ export default function Toolbar({ originalPath, resultBase64, onReset, onUpdateR
     }
   }
 
+  async function handleUpscale(scale: number) {
+    if (!onUpdateResult) return;
+    setShowScaleMenu(false);
+
+    // Check if model is downloaded
+    try {
+      const info = await getUpscaleModelInfo();
+      if (!info.exists) {
+        onToast?.("Upscale model not downloaded. Download it in Settings first.", "info");
+        return;
+      }
+    } catch {
+      onToast?.("Failed to check upscale model status.", "error");
+      return;
+    }
+
+    setUpscaling(true);
+    try {
+      const result = await upscaleImage(resultBase64, scale);
+      onUpdateResult(result);
+      onToast?.(`Image upscaled ${scale}x successfully!`, "success");
+    } catch (e: any) {
+      console.error("Upscale error:", e);
+      onToast?.("Upscale failed: " + e.toString(), "error");
+    } finally {
+      setUpscaling(false);
+    }
+  }
+
   function getDefaultName() {
     if (!originalPath) return "output_nobg.png";
     const parts = originalPath.split("/");
@@ -68,13 +100,34 @@ export default function Toolbar({ originalPath, resultBase64, onReset, onUpdateR
         New Image
       </button>
       <div className="spacer" />
-      <button className="btn btn-secondary" onClick={handleAutoCrop} disabled={cropping}>
+      <button className="btn btn-secondary" onClick={handleAutoCrop} disabled={cropping || upscaling}>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <path d="M6.13 1L6 16a2 2 0 0 0 2 2h15" />
           <path d="M1 6.13L16 6a2 2 0 0 1 2 2v15" />
         </svg>
         {cropping ? "Cropping..." : "Auto-Crop"}
       </button>
+      <div className="upscale-wrapper">
+        <button
+          className="btn btn-secondary"
+          onClick={() => setShowScaleMenu((v) => !v)}
+          disabled={upscaling}
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <polyline points="15 3 21 3 21 9" />
+            <polyline points="9 21 3 21 3 15" />
+            <line x1="21" y1="3" x2="14" y2="10" />
+            <line x1="3" y1="21" x2="10" y2="14" />
+          </svg>
+          {upscaling ? "Upscaling..." : "Upscale"}
+        </button>
+        {showScaleMenu && !upscaling && (
+          <div className="scale-menu">
+            <button className="scale-option" onClick={() => handleUpscale(2)}>2x</button>
+            <button className="scale-option" onClick={() => handleUpscale(4)}>4x</button>
+          </div>
+        )}
+      </div>
       <button className="btn btn-primary" onClick={handleSave}>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />

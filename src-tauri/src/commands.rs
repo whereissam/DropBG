@@ -1,4 +1,5 @@
 use crate::inference::session::SessionState;
+use crate::inference::upscale::UpscaleSessionState;
 use crate::model::downloader;
 use base64::Engine;
 use serde::Serialize;
@@ -36,6 +37,10 @@ pub fn get_model_info() -> Result<downloader::ModelInfo, String> {
 #[tauri::command]
 pub fn open_path_in_finder(path: String) -> Result<(), String> {
     let p = PathBuf::from(&path);
+    // Reject paths with null bytes or parent traversal that could be suspicious
+    if path.contains('\0') {
+        return Err("Invalid path".to_string());
+    }
     // Open the parent folder if it's a file, or the folder itself
     let target = if p.is_file() {
         // Use `open -R` to reveal file in Finder
@@ -159,7 +164,7 @@ pub async fn remove_background(
 
         emit_progress(&app_handle, "Running AI inference...", 40.0);
         let mask_data = {
-            let mut guard = session_state.session.lock().unwrap();
+            let mut guard = session_state.session.lock().map_err(|e| format!("Session lock poisoned: {e}"))?;
             let session = guard.as_mut().ok_or("Session not initialized")?;
             crate::inference::run_inference(session, tensor)?
         };
@@ -207,7 +212,7 @@ fn process_single_image(
     let tensor = crate::inference::preprocess::preprocess(&img).map_err(|e| e.to_string())?;
 
     let mask_data = {
-        let mut guard = session_state.session.lock().unwrap();
+        let mut guard = session_state.session.lock().map_err(|e| format!("Session lock poisoned: {e}"))?;
         let session = guard.as_mut().ok_or("Session not initialized")?;
         crate::inference::run_inference(session, tensor)?
     };
@@ -411,8 +416,116 @@ pub fn auto_crop(base64_data: String, padding: Option<u32>) -> Result<String, St
     Ok(base64::engine::general_purpose::STANDARD.encode(&buf))
 }
 
+// ===== Upscale commands =====
+
+#[tauri::command]
+pub fn get_upscale_model_info() -> Result<downloader::UpscaleModelInfo, String> {
+    downloader::upscale_model_info().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn download_upscale_model(app: AppHandle) -> Result<(), String> {
+    if downloader::upscale_model_exists() {
+        return Ok(());
+    }
+
+    let app_clone = app.clone();
+    tokio::task::spawn_blocking(move || {
+        downloader::download_upscale_model(move |progress| {
+            let _ = app_clone.emit("upscale-download-progress", progress);
+        })
+    })
+    .await
+    .map_err(|e| e.to_string())?
+    .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn upscale_image(
+    app: AppHandle,
+    state: State<'_, UpscaleSessionState>,
+    base64_data: String,
+    scale: Option<u32>, // 2 or 4, default 4
+) -> Result<String, String> {
+    let _ = app.emit("process-progress", ProcessProgress {
+        step: "Loading upscale model...".to_string(),
+        percent: 5.0,
+    });
+    state.ensure_loaded()?;
+
+    let upscale_state = state.inner().clone();
+    let app_handle = app.clone();
+    let target_scale = scale.unwrap_or(4);
+
+    tokio::task::spawn_blocking(move || {
+        let _ = app_handle.emit("process-progress", ProcessProgress {
+            step: "Decoding image...".to_string(),
+            percent: 10.0,
+        });
+
+        let bytes = base64::engine::general_purpose::STANDARD
+            .decode(&base64_data)
+            .map_err(|e| format!("Invalid base64: {e}"))?;
+        let img = image::load_from_memory(&bytes)
+            .map_err(|e| format!("Failed to decode image: {e}"))?;
+
+        let _ = app_handle.emit("process-progress", ProcessProgress {
+            step: "Upscaling (AI super-resolution)...".to_string(),
+            percent: 20.0,
+        });
+
+        let upscaled = crate::inference::upscale::upscale_image(&upscale_state, &img)?;
+
+        // If 2x requested, downscale from 4x to 2x
+        let final_img = if target_scale == 2 {
+            let _ = app_handle.emit("process-progress", ProcessProgress {
+                step: "Resizing to 2x...".to_string(),
+                percent: 85.0,
+            });
+            let (w, h) = (img.width() * 2, img.height() * 2);
+            let resized = image::imageops::resize(
+                &upscaled.to_rgba8(),
+                w, h,
+                image::imageops::FilterType::Lanczos3,
+            );
+            image::DynamicImage::ImageRgba8(resized)
+        } else {
+            upscaled
+        };
+
+        let _ = app_handle.emit("process-progress", ProcessProgress {
+            step: "Encoding PNG...".to_string(),
+            percent: 92.0,
+        });
+
+        let mut buf = Vec::new();
+        final_img
+            .write_to(
+                &mut std::io::Cursor::new(&mut buf),
+                image::ImageFormat::Png,
+            )
+            .map_err(|e| format!("Failed to encode PNG: {e}"))?;
+
+        let _ = app_handle.emit("process-progress", ProcessProgress {
+            step: "Done!".to_string(),
+            percent: 100.0,
+        });
+
+        Ok(base64::engine::general_purpose::STANDARD.encode(&buf))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 #[tauri::command]
 pub async fn save_image(base64_data: String, save_path: String) -> Result<(), String> {
+    // Only allow saving PNG files
+    let path = PathBuf::from(&save_path);
+    match path.extension().and_then(|e| e.to_str()) {
+        Some(ext) if ext.eq_ignore_ascii_case("png") => {}
+        _ => return Err("Only .png files can be saved".to_string()),
+    }
+
     let bytes = base64::engine::general_purpose::STANDARD
         .decode(&base64_data)
         .map_err(|e| format!("Invalid base64: {}", e))?;

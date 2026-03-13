@@ -107,6 +107,31 @@ export async function autoCrop(base64Data: string, padding?: number): Promise<st
   return invoke<string>("auto_crop", { base64Data, padding });
 }
 
+// ===== Upscale =====
+
+export interface UpscaleModelInfo {
+  name: string;
+  filename: string;
+  exists: boolean;
+  size_bytes: number;
+  approx_size: string;
+}
+
+export async function getUpscaleModelInfo(): Promise<UpscaleModelInfo> {
+  const invoke = await getInvoke();
+  return invoke<UpscaleModelInfo>("get_upscale_model_info");
+}
+
+export async function downloadUpscaleModel(): Promise<void> {
+  const invoke = await getInvoke();
+  return invoke<void>("download_upscale_model");
+}
+
+export async function upscaleImage(base64Data: string, scale?: number): Promise<string> {
+  const invoke = await getInvoke();
+  return invoke<string>("upscale_image", { base64Data, scale });
+}
+
 export async function saveImage(base64Data: string, savePath: string): Promise<void> {
   const invoke = await getInvoke();
   return invoke<void>("save_image", { base64Data, savePath });

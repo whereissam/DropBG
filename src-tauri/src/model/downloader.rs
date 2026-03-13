@@ -54,6 +54,87 @@ impl ModelVariant {
     }
 }
 
+// ===== Upscale Model =====
+
+const UPSCALE_MODEL_URL: &str =
+    "https://huggingface.co/Xenova/realesrgan-x4plus/resolve/main/onnx/model.onnx";
+const UPSCALE_MODEL_FILENAME: &str = "realesrgan_x4plus.onnx";
+
+pub fn upscale_model_path() -> anyhow::Result<PathBuf> {
+    let config = load_config()?;
+    Ok(PathBuf::from(&config.model_dir).join(UPSCALE_MODEL_FILENAME))
+}
+
+pub fn upscale_model_exists() -> bool {
+    upscale_model_path().map_or(false, |p| p.exists())
+}
+
+pub fn upscale_model_info() -> anyhow::Result<UpscaleModelInfo> {
+    let path = upscale_model_path()?;
+    let exists = path.exists();
+    let size_bytes = if exists {
+        std::fs::metadata(&path).map(|m| m.len()).unwrap_or(0)
+    } else {
+        0
+    };
+    Ok(UpscaleModelInfo {
+        name: "Real-ESRGAN x4plus".to_string(),
+        filename: UPSCALE_MODEL_FILENAME.to_string(),
+        exists,
+        size_bytes,
+        approx_size: "~64 MB".to_string(),
+    })
+}
+
+#[derive(Serialize, Clone)]
+pub struct UpscaleModelInfo {
+    pub name: String,
+    pub filename: String,
+    pub exists: bool,
+    pub size_bytes: u64,
+    pub approx_size: String,
+}
+
+pub fn download_upscale_model<F>(on_progress: F) -> anyhow::Result<()>
+where
+    F: Fn(f64) + Send + 'static,
+{
+    let dest = upscale_model_path()?;
+    if let Some(parent) = dest.parent() {
+        fs::create_dir_all(parent)?;
+    }
+
+    let client = reqwest::blocking::Client::new();
+    let mut resp = client.get(UPSCALE_MODEL_URL).send()?;
+
+    if !resp.status().is_success() {
+        anyhow::bail!("Download failed with status: {}", resp.status());
+    }
+
+    let total_size = resp.content_length().unwrap_or(0);
+    let mut downloaded: u64 = 0;
+    let tmp_path = dest.with_extension("onnx.tmp");
+    let mut file = fs::File::create(&tmp_path)?;
+
+    let mut buffer = [0u8; 8192];
+    loop {
+        let bytes_read = std::io::Read::read(&mut resp, &mut buffer)?;
+        if bytes_read == 0 {
+            break;
+        }
+        file.write_all(&buffer[..bytes_read])?;
+        downloaded += bytes_read as u64;
+        if total_size > 0 {
+            on_progress((downloaded as f64 / total_size as f64) * 100.0);
+        }
+    }
+
+    file.flush()?;
+    drop(file);
+    fs::rename(&tmp_path, &dest)?;
+    Ok(())
+}
+
 // ===== Config =====
 
 #[derive(Serialize, Deserialize, Clone)]

@@ -51,11 +51,13 @@
 - [x] Preset gradient backgrounds (sunset, ocean, purple, dark, mint, fire)
 - [x] Transparent reset option (checkerboard swatch)
 
-## Phase 6: Image Enhancement
+## Phase 6: Image Enhancement ✅
 
-- [ ] AI upscaling / super-resolution (Real-ESRGAN or similar ONNX model)
-- [ ] Enhance image resolution before or after background removal
-- [ ] Configurable scale factor (2x, 4x)
+- [x] AI upscaling / super-resolution (Real-ESRGAN x4plus ONNX model)
+- [x] Enhance image resolution after background removal
+- [x] Configurable scale factor (2x, 4x)
+- [x] Tile-based processing for large images (256px tiles with 16px padding)
+- [x] Upscale model download/management in Settings
 
 ## Phase 7: Polish & Ship
 
