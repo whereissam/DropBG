@@ -45,6 +45,8 @@
 - [x] Allow switching models without restarting (hot-swap via session clear)
 - [x] BEN2 (219 MB) — best on hair & fine edges, MIT license
 - [x] MODNet (13 MB) — lightweight, optimized for portraits & people
+- [x] BiRefNet Portrait (490 MB) — specialized portrait/people model, modern MODNet replacement
+- [x] BiRefNet General (490 MB) — newer training epoch 244, improved general quality
 
 ## Phase 5: Background Replacement ✅
 
@@ -72,6 +74,9 @@
 ## Stretch Goals
 
 - [ ] Figma plugin companion (thin plugin → DropBG local API)
-- [ ] Portrait-specific model routing (MODNet for faces)
+- [ ] Auto model routing (face detection → BiRefNet Portrait, complex bg → RMBG 2.0)
+- [ ] Convert BiRefNet-matting to ONNX (true alpha mattes for hair/fur/transparency)
+- [ ] Convert BiRefNet_dynamic to ONNX (native resolution 256-2304px, no resize artifacts)
+- [ ] Two-stage pipeline: coarse mask (BiRefNet) → refined alpha (ViTMatte)
 - [ ] Video background removal (frame-by-frame)
 - [ ] Windows / Linux support

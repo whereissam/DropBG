@@ -12,6 +12,8 @@ pub enum ModelVariant {
     BEN2,
     RMBG2,
     MODNet,
+    Portrait,
+    General,
 }
 
 impl Default for ModelVariant {
@@ -25,6 +27,8 @@ impl ModelVariant {
         &[
             ModelVariant::Lite,
             ModelVariant::Full,
+            ModelVariant::Portrait,
+            ModelVariant::General,
             ModelVariant::BEN2,
             ModelVariant::RMBG2,
             ModelVariant::MODNet,
@@ -35,6 +39,8 @@ impl ModelVariant {
         match self {
             ModelVariant::Lite => "BiRefNet Lite",
             ModelVariant::Full => "BiRefNet Full",
+            ModelVariant::Portrait => "BiRefNet Portrait",
+            ModelVariant::General => "BiRefNet General",
             ModelVariant::BEN2 => "BEN2",
             ModelVariant::RMBG2 => "RMBG 2.0",
             ModelVariant::MODNet => "MODNet",
@@ -45,6 +51,8 @@ impl ModelVariant {
         match self {
             ModelVariant::Lite => "birefnet_lite_fp16.onnx",
             ModelVariant::Full => "birefnet_full_fp16.onnx",
+            ModelVariant::Portrait => "birefnet_portrait_fp16.onnx",
+            ModelVariant::General => "birefnet_general_fp16.onnx",
             ModelVariant::BEN2 => "ben2_fp16.onnx",
             ModelVariant::RMBG2 => "rmbg2_fp16.onnx",
             ModelVariant::MODNet => "modnet_fp16.onnx",
@@ -55,6 +63,8 @@ impl ModelVariant {
         match self {
             ModelVariant::Lite => "https://huggingface.co/onnx-community/BiRefNet_lite-ONNX/resolve/main/onnx/model_fp16.onnx",
             ModelVariant::Full => "https://huggingface.co/onnx-community/BiRefNet-ONNX/resolve/main/onnx/model_fp16.onnx",
+            ModelVariant::Portrait => "https://huggingface.co/onnx-community/BiRefNet-portrait-ONNX/resolve/main/onnx/model_fp16.onnx",
+            ModelVariant::General => "https://huggingface.co/onnx-community/BiRefNet-general-epoch_244/resolve/main/onnx/model_fp16.onnx",
             ModelVariant::BEN2 => "https://huggingface.co/onnx-community/BEN2-ONNX/resolve/main/onnx/model_fp16.onnx",
             ModelVariant::RMBG2 => "https://huggingface.co/briaai/RMBG-2.0/resolve/main/onnx/model_fp16.onnx",
             ModelVariant::MODNet => "https://huggingface.co/Xenova/modnet/resolve/main/onnx/model_fp16.onnx",
@@ -78,6 +88,8 @@ impl ModelVariant {
         match self {
             ModelVariant::Lite => "~200 MB",
             ModelVariant::Full => "~900 MB",
+            ModelVariant::Portrait => "~490 MB",
+            ModelVariant::General => "~490 MB",
             ModelVariant::BEN2 => "~219 MB",
             ModelVariant::RMBG2 => "~514 MB",
             ModelVariant::MODNet => "~13 MB",
@@ -88,9 +100,11 @@ impl ModelVariant {
         match self {
             ModelVariant::Lite => "Fast, good for most images",
             ModelVariant::Full => "High quality BiRefNet, handles complex backgrounds",
+            ModelVariant::Portrait => "Best for faces & people, specialized portrait model",
+            ModelVariant::General => "Newer training (epoch 244), improved general quality",
             ModelVariant::BEN2 => "Best on hair & fine edges, handles complex scenes",
             ModelVariant::RMBG2 => "BRIA's enhanced BiRefNet, excellent quality (manual download)",
-            ModelVariant::MODNet => "Lightweight, optimized for portraits & people",
+            ModelVariant::MODNet => "Lightweight, optimized for portraits (legacy)",
         }
     }
 
@@ -101,10 +115,17 @@ impl ModelVariant {
         }
     }
 
+    /// Whether this variant is recommended for portrait/people images.
+    pub fn is_portrait_model(&self) -> bool {
+        matches!(self, ModelVariant::Portrait)
+    }
+
     pub fn variant_key(&self) -> &str {
         match self {
             ModelVariant::Lite => "Lite",
             ModelVariant::Full => "Full",
+            ModelVariant::Portrait => "Portrait",
+            ModelVariant::General => "General",
             ModelVariant::BEN2 => "BEN2",
             ModelVariant::RMBG2 => "RMBG2",
             ModelVariant::MODNet => "MODNet",
@@ -115,6 +136,8 @@ impl ModelVariant {
         match key {
             "Lite" => Some(ModelVariant::Lite),
             "Full" => Some(ModelVariant::Full),
+            "Portrait" => Some(ModelVariant::Portrait),
+            "General" => Some(ModelVariant::General),
             "BEN2" => Some(ModelVariant::BEN2),
             "RMBG2" => Some(ModelVariant::RMBG2),
             "MODNet" => Some(ModelVariant::MODNet),
