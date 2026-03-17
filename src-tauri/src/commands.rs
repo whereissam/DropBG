@@ -250,6 +250,9 @@ pub async fn remove_background(
             emit_progress(&app_handle, "Face detected — using Portrait model...", 20.0);
         }
 
+        // Resolve actual mask dimensions (may be non-square for dynamic models)
+        let (mask_w, mask_h) = crate::inference::preprocess::resolve_mask_size(&img, mask_size);
+
         emit_progress(&app_handle, "Preprocessing...", 25.0);
         let tensor =
             crate::inference::preprocess::preprocess(&img, mask_size).map_err(|e| e.to_string())?;
@@ -268,8 +271,8 @@ pub async fn remove_background(
         }
 
         emit_progress(&app_handle, "Applying mask...", 85.0);
-        let result_img = crate::inference::postprocess::apply_mask(
-            &img, &mask_data, mask_size, orig_w, orig_h,
+        let result_img = crate::inference::postprocess::apply_mask_rect(
+            &img, &mask_data, mask_w, mask_h, orig_w, orig_h,
         )?;
 
         emit_progress(&app_handle, "Encoding PNG...", 92.0);
@@ -307,6 +310,7 @@ fn process_single_image(
     let orig_w = img.width();
     let orig_h = img.height();
 
+    let (mask_w, mask_h) = crate::inference::preprocess::resolve_mask_size(&img, mask_size);
     let tensor = crate::inference::preprocess::preprocess(&img, mask_size).map_err(|e| e.to_string())?;
 
     let mask_data = {
@@ -316,7 +320,7 @@ fn process_single_image(
     };
 
     let result_img =
-        crate::inference::postprocess::apply_mask(&img, &mask_data, mask_size, orig_w, orig_h)?;
+        crate::inference::postprocess::apply_mask_rect(&img, &mask_data, mask_w, mask_h, orig_w, orig_h)?;
 
     let mut buf = Vec::new();
     result_img

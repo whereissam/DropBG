@@ -74,11 +74,23 @@ pub fn apply_mask(
     orig_w: u32,
     orig_h: u32,
 ) -> Result<DynamicImage, String> {
+    apply_mask_rect(original, mask_data, mask_size, mask_size, orig_w, orig_h)
+}
+
+/// Apply mask with potentially non-square mask dimensions (for dynamic resolution).
+pub fn apply_mask_rect(
+    original: &DynamicImage,
+    mask_data: &[f32],
+    mask_w: u32,
+    mask_h: u32,
+    orig_w: u32,
+    orig_h: u32,
+) -> Result<DynamicImage, String> {
     // Build grayscale mask image at model resolution
-    let mut mask_img = GrayImage::new(mask_size, mask_size);
-    for y in 0..mask_size {
-        for x in 0..mask_size {
-            let idx = (y * mask_size + x) as usize;
+    let mut mask_img = GrayImage::new(mask_w, mask_h);
+    for y in 0..mask_h {
+        for x in 0..mask_w {
+            let idx = (y * mask_w + x) as usize;
             let val = sigmoid(mask_data[idx]);
             mask_img.put_pixel(x, y, image::Luma([(val * 255.0) as u8]));
         }

@@ -298,12 +298,12 @@ export default function Settings({ onClose, onModelDeleted, onToast }: Props) {
 
           {info && !info.exists && info.manual_download && info.manual_download_url && (
             <div className="manual-download-hint">
-              {info.variant === "Matting" ? (
+              {(info.variant === "Matting" || info.variant === "Dynamic") ? (
                 <>
                   <p>This model requires ONNX export (no pre-built ONNX available):</p>
                   <ol>
                     <li>Run <code>pip install torch transformers onnx onnxconverter-common</code></li>
-                    <li>Run <code>python scripts/export_matting_onnx.py</code></li>
+                    <li>Run <code>python scripts/export_{info.variant === "Matting" ? "matting" : "dynamic"}_onnx.py</code></li>
                     <li>
                       Copy <code>{info.expected_filename}</code> to{" "}
                       <span className="clickable-link" onClick={handleOpenModelFolder}>

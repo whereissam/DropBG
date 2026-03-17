@@ -15,6 +15,7 @@ pub enum ModelVariant {
     Portrait,
     General,
     Matting,
+    Dynamic,
 }
 
 impl Default for ModelVariant {
@@ -31,6 +32,7 @@ impl ModelVariant {
             ModelVariant::Portrait,
             ModelVariant::General,
             ModelVariant::Matting,
+            ModelVariant::Dynamic,
             ModelVariant::BEN2,
             ModelVariant::RMBG2,
             ModelVariant::MODNet,
@@ -44,6 +46,7 @@ impl ModelVariant {
             ModelVariant::Portrait => "BiRefNet Portrait",
             ModelVariant::General => "BiRefNet General",
             ModelVariant::Matting => "BiRefNet Matting",
+            ModelVariant::Dynamic => "BiRefNet Dynamic",
             ModelVariant::BEN2 => "BEN2",
             ModelVariant::RMBG2 => "RMBG 2.0",
             ModelVariant::MODNet => "MODNet",
@@ -57,6 +60,7 @@ impl ModelVariant {
             ModelVariant::Portrait => "birefnet_portrait_fp16.onnx",
             ModelVariant::General => "birefnet_general_fp16.onnx",
             ModelVariant::Matting => "birefnet_lite_matting_fp16.onnx",
+            ModelVariant::Dynamic => "birefnet_dynamic_fp16.onnx",
             ModelVariant::BEN2 => "ben2_fp16.onnx",
             ModelVariant::RMBG2 => "rmbg2_fp16.onnx",
             ModelVariant::MODNet => "modnet_fp16.onnx",
@@ -71,6 +75,8 @@ impl ModelVariant {
             ModelVariant::General => "https://huggingface.co/onnx-community/BiRefNet-general-epoch_244/resolve/main/onnx/model_fp16.onnx",
             // Matting has no pre-built ONNX — must be exported via scripts/export_matting_onnx.py
             ModelVariant::Matting => "",
+            // Dynamic has no pre-built ONNX — must be exported via scripts/export_dynamic_onnx.py
+            ModelVariant::Dynamic => "",
             ModelVariant::BEN2 => "https://huggingface.co/onnx-community/BEN2-ONNX/resolve/main/onnx/model_fp16.onnx",
             ModelVariant::RMBG2 => "https://huggingface.co/briaai/RMBG-2.0/resolve/main/onnx/model_fp16.onnx",
             ModelVariant::MODNet => "https://huggingface.co/Xenova/modnet/resolve/main/onnx/model_fp16.onnx",
@@ -82,13 +88,14 @@ impl ModelVariant {
         match self {
             ModelVariant::RMBG2 => Some("https://huggingface.co/briaai/RMBG-2.0/blob/main/onnx/model_fp16.onnx"),
             ModelVariant::Matting => Some("https://huggingface.co/ZhengPeng7/BiRefNet_lite-matting"),
+            ModelVariant::Dynamic => Some("https://huggingface.co/ZhengPeng7/BiRefNet_dynamic"),
             _ => None,
         }
     }
 
     /// Whether this model requires manual download (gated or needs ONNX export).
     pub fn requires_manual_download(&self) -> bool {
-        matches!(self, ModelVariant::RMBG2 | ModelVariant::Matting)
+        matches!(self, ModelVariant::RMBG2 | ModelVariant::Matting | ModelVariant::Dynamic)
     }
 
     pub fn approx_size(&self) -> &str {
@@ -98,6 +105,7 @@ impl ModelVariant {
             ModelVariant::Portrait => "~490 MB",
             ModelVariant::General => "~490 MB",
             ModelVariant::Matting => "~214 MB",
+            ModelVariant::Dynamic => "~490 MB",
             ModelVariant::BEN2 => "~219 MB",
             ModelVariant::RMBG2 => "~514 MB",
             ModelVariant::MODNet => "~13 MB",
@@ -111,17 +119,26 @@ impl ModelVariant {
             ModelVariant::Portrait => "Best for faces & people, specialized portrait model",
             ModelVariant::General => "Newer training (epoch 244), improved general quality",
             ModelVariant::Matting => "True alpha mattes for hair/fur/glass (export required)",
+            ModelVariant::Dynamic => "Native resolution 256-2304px, no resize artifacts (export required)",
             ModelVariant::BEN2 => "Best on hair & fine edges, handles complex scenes",
             ModelVariant::RMBG2 => "BRIA's enhanced BiRefNet, excellent quality (manual download)",
             ModelVariant::MODNet => "Lightweight, optimized for portraits (legacy)",
         }
     }
 
+    /// Returns the fixed input size, or 0 for dynamic resolution models.
     pub fn input_size(&self) -> u32 {
         match self {
             ModelVariant::MODNet => 512,
+            ModelVariant::Dynamic => 0, // native resolution
             _ => 1024,
         }
+    }
+
+    /// Whether this model supports dynamic (native) resolution input.
+    #[allow(dead_code)]
+    pub fn is_dynamic(&self) -> bool {
+        matches!(self, ModelVariant::Dynamic)
     }
 
     /// Whether this variant outputs true alpha mattes (not binary masks).
@@ -143,6 +160,7 @@ impl ModelVariant {
             ModelVariant::Portrait => "Portrait",
             ModelVariant::General => "General",
             ModelVariant::Matting => "Matting",
+            ModelVariant::Dynamic => "Dynamic",
             ModelVariant::BEN2 => "BEN2",
             ModelVariant::RMBG2 => "RMBG2",
             ModelVariant::MODNet => "MODNet",
@@ -156,6 +174,7 @@ impl ModelVariant {
             "Portrait" => Some(ModelVariant::Portrait),
             "General" => Some(ModelVariant::General),
             "Matting" => Some(ModelVariant::Matting),
+            "Dynamic" => Some(ModelVariant::Dynamic),
             "BEN2" => Some(ModelVariant::BEN2),
             "RMBG2" => Some(ModelVariant::RMBG2),
             "MODNet" => Some(ModelVariant::MODNet),
