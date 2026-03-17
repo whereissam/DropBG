@@ -80,7 +80,7 @@
 
 - [ ] Figma plugin companion (thin plugin → DropBG local API)
 - [x] Auto model routing (YuNet face detection → BiRefNet Portrait when faces detected)
-- [ ] Convert BiRefNet-matting to ONNX (true alpha mattes for hair/fur/transparency)
+- [x] BiRefNet-matting support (true alpha mattes for hair/fur/transparency, export script provided)
 - [ ] Convert BiRefNet_dynamic to ONNX (native resolution 256-2304px, no resize artifacts)
 - [ ] Two-stage pipeline: coarse mask (BiRefNet) → refined alpha (ViTMatte)
 - [ ] Video background removal (frame-by-frame)

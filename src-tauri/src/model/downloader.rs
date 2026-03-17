@@ -14,6 +14,7 @@ pub enum ModelVariant {
     MODNet,
     Portrait,
     General,
+    Matting,
 }
 
 impl Default for ModelVariant {
@@ -29,6 +30,7 @@ impl ModelVariant {
             ModelVariant::Full,
             ModelVariant::Portrait,
             ModelVariant::General,
+            ModelVariant::Matting,
             ModelVariant::BEN2,
             ModelVariant::RMBG2,
             ModelVariant::MODNet,
@@ -41,6 +43,7 @@ impl ModelVariant {
             ModelVariant::Full => "BiRefNet Full",
             ModelVariant::Portrait => "BiRefNet Portrait",
             ModelVariant::General => "BiRefNet General",
+            ModelVariant::Matting => "BiRefNet Matting",
             ModelVariant::BEN2 => "BEN2",
             ModelVariant::RMBG2 => "RMBG 2.0",
             ModelVariant::MODNet => "MODNet",
@@ -53,6 +56,7 @@ impl ModelVariant {
             ModelVariant::Full => "birefnet_full_fp16.onnx",
             ModelVariant::Portrait => "birefnet_portrait_fp16.onnx",
             ModelVariant::General => "birefnet_general_fp16.onnx",
+            ModelVariant::Matting => "birefnet_lite_matting_fp16.onnx",
             ModelVariant::BEN2 => "ben2_fp16.onnx",
             ModelVariant::RMBG2 => "rmbg2_fp16.onnx",
             ModelVariant::MODNet => "modnet_fp16.onnx",
@@ -65,6 +69,8 @@ impl ModelVariant {
             ModelVariant::Full => "https://huggingface.co/onnx-community/BiRefNet-ONNX/resolve/main/onnx/model_fp16.onnx",
             ModelVariant::Portrait => "https://huggingface.co/onnx-community/BiRefNet-portrait-ONNX/resolve/main/onnx/model_fp16.onnx",
             ModelVariant::General => "https://huggingface.co/onnx-community/BiRefNet-general-epoch_244/resolve/main/onnx/model_fp16.onnx",
+            // Matting has no pre-built ONNX — must be exported via scripts/export_matting_onnx.py
+            ModelVariant::Matting => "",
             ModelVariant::BEN2 => "https://huggingface.co/onnx-community/BEN2-ONNX/resolve/main/onnx/model_fp16.onnx",
             ModelVariant::RMBG2 => "https://huggingface.co/briaai/RMBG-2.0/resolve/main/onnx/model_fp16.onnx",
             ModelVariant::MODNet => "https://huggingface.co/Xenova/modnet/resolve/main/onnx/model_fp16.onnx",
@@ -75,13 +81,14 @@ impl ModelVariant {
     pub fn manual_download_url(&self) -> Option<&str> {
         match self {
             ModelVariant::RMBG2 => Some("https://huggingface.co/briaai/RMBG-2.0/blob/main/onnx/model_fp16.onnx"),
+            ModelVariant::Matting => Some("https://huggingface.co/ZhengPeng7/BiRefNet_lite-matting"),
             _ => None,
         }
     }
 
-    /// Whether this model requires manual download (gated on HuggingFace).
+    /// Whether this model requires manual download (gated or needs ONNX export).
     pub fn requires_manual_download(&self) -> bool {
-        matches!(self, ModelVariant::RMBG2)
+        matches!(self, ModelVariant::RMBG2 | ModelVariant::Matting)
     }
 
     pub fn approx_size(&self) -> &str {
@@ -90,6 +97,7 @@ impl ModelVariant {
             ModelVariant::Full => "~900 MB",
             ModelVariant::Portrait => "~490 MB",
             ModelVariant::General => "~490 MB",
+            ModelVariant::Matting => "~214 MB",
             ModelVariant::BEN2 => "~219 MB",
             ModelVariant::RMBG2 => "~514 MB",
             ModelVariant::MODNet => "~13 MB",
@@ -102,6 +110,7 @@ impl ModelVariant {
             ModelVariant::Full => "High quality BiRefNet, handles complex backgrounds",
             ModelVariant::Portrait => "Best for faces & people, specialized portrait model",
             ModelVariant::General => "Newer training (epoch 244), improved general quality",
+            ModelVariant::Matting => "True alpha mattes for hair/fur/glass (export required)",
             ModelVariant::BEN2 => "Best on hair & fine edges, handles complex scenes",
             ModelVariant::RMBG2 => "BRIA's enhanced BiRefNet, excellent quality (manual download)",
             ModelVariant::MODNet => "Lightweight, optimized for portraits (legacy)",
@@ -113,6 +122,12 @@ impl ModelVariant {
             ModelVariant::MODNet => 512,
             _ => 1024,
         }
+    }
+
+    /// Whether this variant outputs true alpha mattes (not binary masks).
+    #[allow(dead_code)]
+    pub fn is_matting_model(&self) -> bool {
+        matches!(self, ModelVariant::Matting)
     }
 
     /// Whether this variant is recommended for portrait/people images.
@@ -127,6 +142,7 @@ impl ModelVariant {
             ModelVariant::Full => "Full",
             ModelVariant::Portrait => "Portrait",
             ModelVariant::General => "General",
+            ModelVariant::Matting => "Matting",
             ModelVariant::BEN2 => "BEN2",
             ModelVariant::RMBG2 => "RMBG2",
             ModelVariant::MODNet => "MODNet",
@@ -139,6 +155,7 @@ impl ModelVariant {
             "Full" => Some(ModelVariant::Full),
             "Portrait" => Some(ModelVariant::Portrait),
             "General" => Some(ModelVariant::General),
+            "Matting" => Some(ModelVariant::Matting),
             "BEN2" => Some(ModelVariant::BEN2),
             "RMBG2" => Some(ModelVariant::RMBG2),
             "MODNet" => Some(ModelVariant::MODNet),

@@ -268,27 +268,50 @@ export default function Settings({ onClose, onModelDeleted, onToast }: Props) {
 
           {info && !info.exists && info.manual_download && info.manual_download_url && (
             <div className="manual-download-hint">
-              <p>This model requires manual download from HuggingFace:</p>
-              <ol>
-                <li>
-                  <span
-                    className="clickable-link"
-                    onClick={() => openUrlInBrowser(info.manual_download_url!).catch(() => {})}
-                  >
-                    Download from HuggingFace <ExternalLinkIcon />
-                  </span>
-                </li>
-                <li>Rename the file to <code>{info.expected_filename}</code></li>
-                <li>
-                  Place it in{" "}
-                  <span
-                    className="clickable-link"
-                    onClick={handleOpenModelFolder}
-                  >
-                    {shortenPath(info.model_dir)} <ExternalLinkIcon />
-                  </span>
-                </li>
-              </ol>
+              {info.variant === "Matting" ? (
+                <>
+                  <p>This model requires ONNX export (no pre-built ONNX available):</p>
+                  <ol>
+                    <li>Run <code>pip install torch transformers onnx onnxconverter-common</code></li>
+                    <li>Run <code>python scripts/export_matting_onnx.py</code></li>
+                    <li>
+                      Copy <code>{info.expected_filename}</code> to{" "}
+                      <span className="clickable-link" onClick={handleOpenModelFolder}>
+                        {shortenPath(info.model_dir)} <ExternalLinkIcon />
+                      </span>
+                    </li>
+                  </ol>
+                  <p style={{ marginTop: "0.4rem" }}>
+                    <span
+                      className="clickable-link"
+                      onClick={() => openUrlInBrowser(info.manual_download_url!).catch(() => {})}
+                    >
+                      View source model on HuggingFace <ExternalLinkIcon />
+                    </span>
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p>This model requires manual download from HuggingFace:</p>
+                  <ol>
+                    <li>
+                      <span
+                        className="clickable-link"
+                        onClick={() => openUrlInBrowser(info.manual_download_url!).catch(() => {})}
+                      >
+                        Download from HuggingFace <ExternalLinkIcon />
+                      </span>
+                    </li>
+                    <li>Rename the file to <code>{info.expected_filename}</code></li>
+                    <li>
+                      Place it in{" "}
+                      <span className="clickable-link" onClick={handleOpenModelFolder}>
+                        {shortenPath(info.model_dir)} <ExternalLinkIcon />
+                      </span>
+                    </li>
+                  </ol>
+                </>
+              )}
             </div>
           )}
           <div className="settings-actions">
