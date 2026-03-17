@@ -66,9 +66,14 @@
 ## Phase 7: Polish & Ship
 
 - [x] App icon and branding
+- [x] DMG installer build (DropBG_1.0.0_aarch64.dmg, 16 MB)
+- [x] Landing page with how-it-works, models, and install guide
+- [x] Usage guide (docs/USAGE.md)
+- [x] Version bump to 1.0.0
+- [x] Onboarding guide (permissions, unsigned app workaround)
+- [x] RMBG 2.0 manual download flow (gated HuggingFace model)
 - [ ] macOS code signing & notarization
-- [ ] DMG installer build
-- [ ] Landing page / GitHub releases
+- [ ] GitHub releases with DMG attached
 - [ ] Performance benchmarks on Apple Silicon (M1/M2/M3)
 
 ## Stretch Goals
