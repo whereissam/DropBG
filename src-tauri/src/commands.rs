@@ -1,3 +1,4 @@
+use crate::inference::face_detect::FaceDetectState;
 use crate::inference::session::SessionState;
 use crate::inference::upscale::UpscaleSessionState;
 use crate::model::downloader;
@@ -10,6 +11,62 @@ fn current_input_size() -> u32 {
     downloader::current_variant()
         .map(|v| v.input_size())
         .unwrap_or(1024)
+}
+
+/// If auto-routing is enabled, detect faces and return Portrait variant's input size.
+/// Otherwise return the current variant's input size.
+fn resolve_model_for_image(
+    face_state: &FaceDetectState,
+    session_state: &SessionState,
+    img: &image::DynamicImage,
+) -> (u32, bool) {
+    let config = downloader::load_config().unwrap_or_default();
+    if !config.auto_model_routing {
+        return (current_input_size(), false);
+    }
+
+    // Check if Portrait model is available
+    let portrait = downloader::ModelVariant::Portrait;
+    let portrait_path = std::path::PathBuf::from(&config.model_dir).join(portrait.filename());
+    if !portrait_path.exists() {
+        return (current_input_size(), false);
+    }
+
+    // Try to detect faces
+    if face_state.ensure_loaded().is_err() {
+        return (current_input_size(), false);
+    }
+
+    let face_count = crate::inference::face_detect::detect_faces(face_state, img).unwrap_or(0);
+    if face_count > 0 && config.model_variant != portrait {
+        // Temporarily switch to portrait model
+        if let Ok(()) = session_state.load_variant(&portrait) {
+            return (portrait.input_size(), true);
+        }
+    }
+
+    (current_input_size(), false)
+}
+
+#[tauri::command]
+pub fn get_auto_routing() -> bool {
+    downloader::load_config().map_or(false, |c| c.auto_model_routing)
+}
+
+#[tauri::command]
+pub fn set_auto_routing(enabled: bool, face_state: State<'_, FaceDetectState>) -> Result<(), String> {
+    let mut config = downloader::load_config().map_err(|e| e.to_string())?;
+    config.auto_model_routing = enabled;
+    downloader::save_config(&config).map_err(|e| e.to_string())?;
+
+    if enabled {
+        // Download face detection model if not present (~233 KB)
+        if !crate::inference::face_detect::face_model_exists() {
+            crate::inference::face_detect::download_face_model().map_err(|e| e.to_string())?;
+        }
+        face_state.ensure_loaded()?;
+    }
+    Ok(())
 }
 
 #[derive(Clone, Serialize)]
@@ -165,6 +222,7 @@ pub async fn download_model(app: AppHandle) -> Result<(), String> {
 pub async fn remove_background(
     app: AppHandle,
     state: State<'_, SessionState>,
+    face_state: State<'_, FaceDetectState>,
     image_path: String,
 ) -> Result<String, String> {
     let path = PathBuf::from(&image_path);
@@ -176,15 +234,20 @@ pub async fn remove_background(
     state.ensure_loaded()?;
 
     let session_state = state.inner().clone();
+    let face_detect_state = face_state.inner().clone();
     let app_handle = app.clone();
-
-    let mask_size = current_input_size();
 
     tokio::task::spawn_blocking(move || {
         emit_progress(&app_handle, "Reading image...", 15.0);
         let img = image::open(&path).map_err(|e| format!("Failed to open image: {}", e))?;
         let orig_w = img.width();
         let orig_h = img.height();
+
+        // Auto-routing: detect faces and switch model if needed
+        let (mask_size, routed) = resolve_model_for_image(&face_detect_state, &session_state, &img);
+        if routed {
+            emit_progress(&app_handle, "Face detected — using Portrait model...", 20.0);
+        }
 
         emit_progress(&app_handle, "Preprocessing...", 25.0);
         let tensor =
@@ -197,6 +260,11 @@ pub async fn remove_background(
             crate::inference::run_inference(session, tensor)?
         };
         emit_progress(&app_handle, "Inference complete", 80.0);
+
+        // Restore user's selected model if we auto-routed
+        if routed {
+            session_state.clear();
+        }
 
         emit_progress(&app_handle, "Applying mask...", 85.0);
         let result_img = crate::inference::postprocess::apply_mask(

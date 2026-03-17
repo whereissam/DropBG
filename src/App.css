@@ -1009,6 +1009,52 @@
   margin-left: 1.1rem;
 }
 
+.auto-routing-toggle {
+  margin-top: 0.75rem;
+  background: #0f1e38;
+  border-radius: 10px;
+  padding: 0.6rem 0.85rem;
+}
+.toggle-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  cursor: pointer;
+}
+.toggle-row strong { font-size: 0.82rem; display: block; }
+.toggle-row p { margin: 0.1rem 0 0; font-size: 0.72rem; color: #667; }
+.toggle-row input[type="checkbox"] {
+  width: 36px;
+  height: 20px;
+  appearance: none;
+  -webkit-appearance: none;
+  background: #1a2e50;
+  border-radius: 10px;
+  position: relative;
+  cursor: pointer;
+  transition: background 0.2s;
+  flex-shrink: 0;
+}
+.toggle-row input[type="checkbox"]::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  background: #667;
+  border-radius: 50%;
+  transition: all 0.2s;
+}
+.toggle-row input[type="checkbox"]:checked {
+  background: rgba(233, 69, 96, 0.4);
+}
+.toggle-row input[type="checkbox"]:checked::after {
+  left: 18px;
+  background: #e94560;
+}
+
 .sa-btn-accent { color: #e94560; font-weight: 500; }
 .sa-btn-accent:hover { background: #2a1a2a; }
 

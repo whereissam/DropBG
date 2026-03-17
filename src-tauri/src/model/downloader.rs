@@ -239,6 +239,22 @@ pub struct AppConfig {
     pub model_variant: ModelVariant,
     #[serde(default)]
     pub onboarding_done: bool,
+    #[serde(default)]
+    pub auto_model_routing: bool,
+}
+
+impl Default for AppConfig {
+    fn default() -> Self {
+        Self {
+            model_dir: default_model_dir()
+                .map(|p| p.to_string_lossy().to_string())
+                .unwrap_or_default(),
+            output_dir: default_output_dir_string(),
+            model_variant: ModelVariant::default(),
+            onboarding_done: false,
+            auto_model_routing: false,
+        }
+    }
 }
 
 fn default_output_dir_string() -> String {
@@ -308,6 +324,7 @@ pub fn load_config() -> anyhow::Result<AppConfig> {
             output_dir: default_output_dir()?.to_string_lossy().to_string(),
             model_variant: ModelVariant::default(),
             onboarding_done: false,
+            auto_model_routing: false,
         })
     }
 }

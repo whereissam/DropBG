@@ -79,7 +79,7 @@
 ## Stretch Goals
 
 - [ ] Figma plugin companion (thin plugin → DropBG local API)
-- [ ] Auto model routing (face detection → BiRefNet Portrait, complex bg → RMBG 2.0)
+- [x] Auto model routing (YuNet face detection → BiRefNet Portrait when faces detected)
 - [ ] Convert BiRefNet-matting to ONNX (true alpha mattes for hair/fur/transparency)
 - [ ] Convert BiRefNet_dynamic to ONNX (native resolution 256-2304px, no resize artifacts)
 - [ ] Two-stage pipeline: coarse mask (BiRefNet) → refined alpha (ViTMatte)

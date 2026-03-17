@@ -45,6 +45,16 @@ export async function completeOnboarding(): Promise<void> {
   return invoke<void>("complete_onboarding");
 }
 
+export async function getAutoRouting(): Promise<boolean> {
+  const invoke = await getInvoke();
+  return invoke<boolean>("get_auto_routing");
+}
+
+export async function setAutoRouting(enabled: boolean): Promise<void> {
+  const invoke = await getInvoke();
+  return invoke<void>("set_auto_routing", { enabled });
+}
+
 export async function getModelInfo(): Promise<ModelInfo> {
   const invoke = await getInvoke();
   return invoke<ModelInfo>("get_model_info");

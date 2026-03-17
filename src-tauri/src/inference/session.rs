@@ -46,4 +46,28 @@ impl SessionState {
         let mut guard = self.session.lock().unwrap_or_else(|e| e.into_inner());
         *guard = None;
     }
+
+    /// Load a specific model variant (for auto-routing).
+    /// Clears the current session and loads the given variant.
+    pub fn load_variant(&self, variant: &downloader::ModelVariant) -> Result<(), String> {
+        let config = downloader::load_config().map_err(|e| e.to_string())?;
+        let path = std::path::PathBuf::from(&config.model_dir).join(variant.filename());
+        if !path.exists() {
+            return Err(format!("Model {} not downloaded", variant.name()));
+        }
+
+        let mut guard = self.session.lock().map_err(|e| format!("Session lock poisoned: {e}"))?;
+
+        let session = Session::builder()
+            .map_err(|e| format!("Failed to create session builder: {e}"))?
+            .with_execution_providers([
+                ort::execution_providers::CoreMLExecutionProvider::default().build(),
+            ])
+            .map_err(|e| format!("Failed to set execution provider: {e}"))?
+            .commit_from_file(&path)
+            .map_err(|e| format!("Failed to load model: {e}"))?;
+
+        *guard = Some(session);
+        Ok(())
+    }
 }

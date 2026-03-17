@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import {
   getModelInfo,
   getOutputDir,
+  getAutoRouting,
+  setAutoRouting,
   getUpscaleModelInfo,
   downloadUpscaleModel,
   openPathInFinder,
@@ -31,6 +33,7 @@ export default function Settings({ onClose, onModelDeleted, onToast }: Props) {
   const [outputDir, setOutputDirState] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [switching, setSwitching] = useState(false);
+  const [autoRouting, setAutoRoutingState] = useState(false);
   const [upscaleInfo, setUpscaleInfo] = useState<UpscaleModelInfo | null>(null);
   const [upscaleDownloading, setUpscaleDownloading] = useState(false);
   const [upscaleProgress, setUpscaleProgress] = useState(0);
@@ -38,6 +41,7 @@ export default function Settings({ onClose, onModelDeleted, onToast }: Props) {
   useEffect(() => {
     loadInfo();
     getOutputDir().then(setOutputDirState).catch(() => {});
+    getAutoRouting().then(setAutoRoutingState).catch(() => {});
     getUpscaleModelInfo().then(setUpscaleInfo).catch(() => {});
   }, []);
 
@@ -229,6 +233,33 @@ export default function Settings({ onClose, onModelDeleted, onToast }: Props) {
                     </span>
                   </div>
                 ))}
+              </div>
+
+              {/* Auto-routing toggle */}
+              <div className="auto-routing-toggle">
+                <label className="toggle-row">
+                  <div>
+                    <strong>Auto model routing</strong>
+                    <p>Detect faces and auto-switch to Portrait model</p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={autoRouting}
+                    onChange={async (e) => {
+                      const enabled = e.target.checked;
+                      try {
+                        await setAutoRouting(enabled);
+                        setAutoRoutingState(enabled);
+                        onToast(
+                          enabled ? "Auto-routing enabled. Face detection model downloaded." : "Auto-routing disabled.",
+                          "info",
+                        );
+                      } catch (err: any) {
+                        onToast("Failed: " + err.toString(), "error");
+                      }
+                    }}
+                  />
+                </label>
               </div>
             </>
           ) : (
