@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
-import { checkModelReady, downloadModel, openPathInFinder, getModelInfo, getOutputDir, removeBackgroundBatch } from "./tauri";
+import { checkModelReady, isOnboardingDone, completeOnboarding, downloadModel, openPathInFinder, getModelInfo, getOutputDir, removeBackgroundBatch } from "./tauri";
 import DropZone from "./components/DropZone";
+import Onboarding from "./components/Onboarding";
 import ModelSetup from "./components/ModelSetup";
 import Preview from "./components/Preview";
 import Toolbar from "./components/Toolbar";
@@ -10,7 +11,7 @@ import BatchList, { type BatchItem } from "./components/BatchList";
 import BgReplace from "./components/BgReplace";
 import "./App.css";
 
-type Stage = "loading" | "setup" | "downloading" | "ready";
+type Stage = "loading" | "onboarding" | "setup" | "downloading" | "ready";
 
 interface ToastData {
   id: number;
@@ -57,6 +58,11 @@ export default function App() {
   useEffect(() => {
     (async () => {
       try {
+        const onboarded = await isOnboardingDone();
+        if (!onboarded) {
+          setStage("onboarding");
+          return;
+        }
         const ready = await checkModelReady();
         setStage(ready ? "ready" : "setup");
       } catch {
@@ -251,6 +257,14 @@ export default function App() {
         <div className="center-content">
           <div className="spinner" />
         </div>
+      ) : stage === "onboarding" ? (
+        <Onboarding
+          onComplete={async () => {
+            await completeOnboarding().catch(() => {});
+            const ready = await checkModelReady().catch(() => false);
+            setStage(ready ? "ready" : "setup");
+          }}
+        />
       ) : stage === "setup" || stage === "downloading" ? (
         <ModelSetup
           downloading={stage === "downloading"}

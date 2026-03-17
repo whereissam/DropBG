@@ -116,6 +116,7 @@ impl ModelVariant {
     }
 
     /// Whether this variant is recommended for portrait/people images.
+    #[allow(dead_code)]
     pub fn is_portrait_model(&self) -> bool {
         matches!(self, ModelVariant::Portrait)
     }
@@ -236,6 +237,8 @@ pub struct AppConfig {
     pub output_dir: String,
     #[serde(default)]
     pub model_variant: ModelVariant,
+    #[serde(default)]
+    pub onboarding_done: bool,
 }
 
 fn default_output_dir_string() -> String {
@@ -304,6 +307,7 @@ pub fn load_config() -> anyhow::Result<AppConfig> {
             model_dir: default_model_dir()?.to_string_lossy().to_string(),
             output_dir: default_output_dir()?.to_string_lossy().to_string(),
             model_variant: ModelVariant::default(),
+            onboarding_done: false,
         })
     }
 }

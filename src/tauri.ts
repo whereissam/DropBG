@@ -35,6 +35,16 @@ export async function checkModelReady(): Promise<boolean> {
   return invoke<boolean>("check_model_ready");
 }
 
+export async function isOnboardingDone(): Promise<boolean> {
+  const invoke = await getInvoke();
+  return invoke<boolean>("is_onboarding_done");
+}
+
+export async function completeOnboarding(): Promise<void> {
+  const invoke = await getInvoke();
+  return invoke<void>("complete_onboarding");
+}
+
 export async function getModelInfo(): Promise<ModelInfo> {
   const invoke = await getInvoke();
   return invoke<ModelInfo>("get_model_info");

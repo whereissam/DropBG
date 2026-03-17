@@ -34,6 +34,18 @@ pub fn check_model_ready() -> bool {
 }
 
 #[tauri::command]
+pub fn is_onboarding_done() -> bool {
+    downloader::load_config().map_or(false, |c| c.onboarding_done)
+}
+
+#[tauri::command]
+pub fn complete_onboarding() -> Result<(), String> {
+    let mut config = downloader::load_config().map_err(|e| e.to_string())?;
+    config.onboarding_done = true;
+    downloader::save_config(&config).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 pub fn get_model_info() -> Result<downloader::ModelInfo, String> {
     downloader::get_model_info().map_err(|e| e.to_string())
 }

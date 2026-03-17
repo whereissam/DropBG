@@ -220,6 +220,189 @@
 .setup-progress { margin-bottom: 0.5rem; }
 .setup-footer { margin: 1rem 0 0; font-size: 0.75rem; color: #555; }
 
+/* ===== Onboarding ===== */
+.onboard-card {
+  text-align: center;
+  padding: 2rem 2.5rem;
+  background: #16213e;
+  border-radius: 20px;
+  border: 1px solid #0f3460;
+  max-width: 480px;
+  width: 100%;
+}
+.onboard-logo { margin-bottom: 1rem; }
+.onboard-card h1 { margin: 0 0 0.3rem; font-size: 1.4rem; font-weight: 700; }
+.onboard-subtitle { color: #888; font-size: 0.85rem; margin: 0 0 1.25rem; line-height: 1.4; }
+
+.onboard-features {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  text-align: left;
+  margin-bottom: 1.25rem;
+}
+.onboard-feature {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  background: #0f1e38;
+  border-radius: 12px;
+  padding: 0.75rem 1rem;
+}
+.onboard-feature-icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: rgba(233, 69, 96, 0.12);
+  color: #e94560;
+}
+.onboard-feature strong { display: block; font-size: 0.85rem; margin-bottom: 0.15rem; }
+.onboard-feature p { margin: 0; font-size: 0.78rem; color: #888; line-height: 1.4; }
+
+.onboard-permissions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  text-align: left;
+  margin-bottom: 1.25rem;
+}
+.onboard-perm {
+  background: #0f1e38;
+  border-radius: 12px;
+  padding: 0.75rem 1rem;
+}
+.onboard-perm-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.3rem;
+}
+.onboard-perm-icon {
+  color: #5ea8ff;
+  display: flex;
+  align-items: center;
+}
+.onboard-perm strong { font-size: 0.85rem; }
+.onboard-perm p { margin: 0; font-size: 0.78rem; color: #888; line-height: 1.4; }
+
+.onboard-hint {
+  background: rgba(94, 168, 255, 0.08);
+  border: 1px solid rgba(94, 168, 255, 0.15);
+  border-radius: 10px;
+  padding: 0.6rem 0.85rem;
+  font-size: 0.78rem;
+  color: #8ac;
+  line-height: 1.5;
+  text-align: left;
+}
+.onboard-hint strong { color: #bdf; }
+.onboard-hint code {
+  background: rgba(255, 255, 255, 0.08);
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+  font-size: 0.72rem;
+}
+
+.onboard-unsigned { text-align: left; margin-bottom: 1.25rem; }
+.onboard-unsigned-intro {
+  font-size: 0.82rem;
+  color: #999;
+  margin: 0 0 0.75rem;
+  line-height: 1.5;
+}
+.onboard-unsigned-intro em { color: #ec6; font-style: normal; }
+
+.onboard-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+.onboard-step {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  background: #0f1e38;
+  border-radius: 10px;
+  padding: 0.65rem 0.85rem;
+}
+.onboard-step-num {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(233, 69, 96, 0.15);
+  color: #e94560;
+  font-weight: 700;
+  font-size: 0.8rem;
+}
+.onboard-step strong { display: block; font-size: 0.82rem; margin-bottom: 0.1rem; }
+.onboard-step p { margin: 0; font-size: 0.75rem; color: #888; line-height: 1.3; }
+
+.onboard-dots {
+  display: flex;
+  justify-content: center;
+  gap: 0.4rem;
+  margin-bottom: 1rem;
+}
+.onboard-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #1a2e50;
+  transition: background 0.2s;
+}
+.onboard-dot.active { background: #e94560; }
+
+.onboard-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+}
+.onboard-btn-primary {
+  flex: 1;
+  padding: 0.7rem 1.5rem;
+  background: #e94560;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-weight: 600;
+  transition: background 0.2s;
+}
+.onboard-btn-primary:hover { background: #d63851; }
+.onboard-btn-secondary {
+  padding: 0.7rem 1.25rem;
+  background: rgba(255, 255, 255, 0.06);
+  color: #aaa;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+.onboard-btn-secondary:hover { background: rgba(255, 255, 255, 0.1); color: #ddd; }
+
+.onboard-skip {
+  background: none;
+  border: none;
+  color: #556;
+  font-size: 0.75rem;
+  cursor: pointer;
+  margin-top: 0.75rem;
+  padding: 0.25rem;
+}
+.onboard-skip:hover { color: #889; text-decoration: underline; }
+
 /* ===== Progress bar ===== */
 .progress-bar {
   width: 300px;

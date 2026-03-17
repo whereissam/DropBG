@@ -15,6 +15,8 @@ pub fn run() {
         .manage(UpscaleSessionState::new())
         .invoke_handler(tauri::generate_handler![
             commands::check_model_ready,
+            commands::is_onboarding_done,
+            commands::complete_onboarding,
             commands::get_model_info,
             commands::open_path_in_finder,
             commands::open_url_in_browser,
