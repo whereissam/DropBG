@@ -1,6 +1,7 @@
 pub mod face_detect;
 pub mod postprocess;
 pub mod preprocess;
+pub mod refine;
 pub mod session;
 pub mod upscale;
 

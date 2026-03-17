@@ -1,4 +1,5 @@
 use crate::inference::face_detect::FaceDetectState;
+use crate::inference::refine::RefineState;
 use crate::inference::session::SessionState;
 use crate::inference::upscale::UpscaleSessionState;
 use crate::model::downloader;
@@ -608,6 +609,121 @@ pub async fn upscale_image(
             step: "Done!".to_string(),
             percent: 100.0,
         });
+
+        Ok(base64::engine::general_purpose::STANDARD.encode(&buf))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+// ===== Refine (ViTMatte) commands =====
+
+#[tauri::command]
+pub fn get_refine_model_info() -> Result<serde_json::Value, String> {
+    let exists = crate::inference::refine::refine_model_exists();
+    let path = crate::inference::refine::refine_model_path().map_err(|e| e.to_string())?;
+    let size_bytes = if exists {
+        std::fs::metadata(&path).map(|m| m.len()).unwrap_or(0)
+    } else {
+        0
+    };
+    Ok(serde_json::json!({
+        "name": "ViTMatte Small (quantized)",
+        "exists": exists,
+        "size_bytes": size_bytes,
+        "approx_size": "~28 MB",
+    }))
+}
+
+#[tauri::command]
+pub async fn download_refine_model(app: AppHandle) -> Result<(), String> {
+    if crate::inference::refine::refine_model_exists() {
+        return Ok(());
+    }
+    let app_clone = app.clone();
+    tokio::task::spawn_blocking(move || {
+        crate::inference::refine::download_refine_model(move |progress| {
+            let _ = app_clone.emit("refine-download-progress", progress);
+        })
+    })
+    .await
+    .map_err(|e| e.to_string())?
+    .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn refine_result(
+    app: AppHandle,
+    refine_state: State<'_, RefineState>,
+    base64_data: String,
+    original_path: String,
+) -> Result<String, String> {
+    let _ = app.emit(
+        "process-progress",
+        ProcessProgress {
+            step: "Loading refinement model...".to_string(),
+            percent: 5.0,
+        },
+    );
+    refine_state.ensure_loaded()?;
+
+    let state = refine_state.inner().clone();
+    let app_handle = app.clone();
+
+    tokio::task::spawn_blocking(move || {
+        let _ = app_handle.emit(
+            "process-progress",
+            ProcessProgress {
+                step: "Decoding images...".to_string(),
+                percent: 10.0,
+            },
+        );
+
+        // Decode the coarse result
+        let coarse_bytes = base64::engine::general_purpose::STANDARD
+            .decode(&base64_data)
+            .map_err(|e| format!("Invalid base64: {e}"))?;
+        let coarse_img = image::load_from_memory(&coarse_bytes)
+            .map_err(|e| format!("Failed to decode coarse image: {e}"))?;
+        let coarse_rgba = coarse_img.to_rgba8();
+
+        // Load original image
+        let original = image::open(&original_path)
+            .map_err(|e| format!("Failed to open original: {e}"))?;
+
+        let _ = app_handle.emit(
+            "process-progress",
+            ProcessProgress {
+                step: "Refining alpha edges (ViTMatte)...".to_string(),
+                percent: 30.0,
+            },
+        );
+
+        let refined = crate::inference::refine::refine_mask(&state, &original, &coarse_rgba)?;
+
+        let _ = app_handle.emit(
+            "process-progress",
+            ProcessProgress {
+                step: "Encoding PNG...".to_string(),
+                percent: 90.0,
+            },
+        );
+
+        let mut buf = Vec::new();
+        refined
+            .write_to(
+                &mut std::io::Cursor::new(&mut buf),
+                image::ImageFormat::Png,
+            )
+            .map_err(|e| format!("Failed to encode PNG: {e}"))?;
+
+        let _ = app_handle.emit(
+            "process-progress",
+            ProcessProgress {
+                step: "Done!".to_string(),
+                percent: 100.0,
+            },
+        );
 
         Ok(base64::engine::general_purpose::STANDARD.encode(&buf))
     })

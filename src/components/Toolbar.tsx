@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { saveImage, autoCrop, upscaleImage, getUpscaleModelInfo, getOutputDir, setOutputDir } from "../tauri";
+import { saveImage, autoCrop, upscaleImage, refineResult, getUpscaleModelInfo, getRefineModelInfo, getOutputDir, setOutputDir } from "../tauri";
 
 interface Props {
   originalPath: string | null;
@@ -12,6 +12,7 @@ interface Props {
 export default function Toolbar({ originalPath, resultBase64, onReset, onUpdateResult, onToast }: Props) {
   const [cropping, setCropping] = useState(false);
   const [upscaling, setUpscaling] = useState(false);
+  const [refining, setRefining] = useState(false);
   const [showScaleMenu, setShowScaleMenu] = useState(false);
 
   async function handleSave() {
@@ -82,6 +83,33 @@ export default function Toolbar({ originalPath, resultBase64, onReset, onUpdateR
     }
   }
 
+  async function handleRefine() {
+    if (!onUpdateResult || !originalPath) return;
+
+    try {
+      const info = await getRefineModelInfo();
+      if (!info.exists) {
+        onToast?.("Refinement model not downloaded. Download it in Settings first.", "info");
+        return;
+      }
+    } catch {
+      onToast?.("Failed to check refine model status.", "error");
+      return;
+    }
+
+    setRefining(true);
+    try {
+      const refined = await refineResult(resultBase64, originalPath);
+      onUpdateResult(refined);
+      onToast?.("Alpha edges refined with ViTMatte!", "success");
+    } catch (e: any) {
+      console.error("Refine error:", e);
+      onToast?.("Refine failed: " + e.toString(), "error");
+    } finally {
+      setRefining(false);
+    }
+  }
+
   function getDefaultName() {
     if (!originalPath) return "output_nobg.png";
     const parts = originalPath.split("/");
@@ -100,12 +128,18 @@ export default function Toolbar({ originalPath, resultBase64, onReset, onUpdateR
         New Image
       </button>
       <div className="spacer" />
-      <button className="btn btn-secondary" onClick={handleAutoCrop} disabled={cropping || upscaling}>
+      <button className="btn btn-secondary" onClick={handleAutoCrop} disabled={cropping || upscaling || refining}>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <path d="M6.13 1L6 16a2 2 0 0 0 2 2h15" />
           <path d="M1 6.13L16 6a2 2 0 0 1 2 2v15" />
         </svg>
         {cropping ? "Cropping..." : "Auto-Crop"}
+      </button>
+      <button className="btn btn-secondary" onClick={handleRefine} disabled={refining || upscaling || cropping || !originalPath}>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
+        </svg>
+        {refining ? "Refining..." : "Refine"}
       </button>
       <div className="upscale-wrapper">
         <button

@@ -166,6 +166,30 @@ export async function upscaleImage(base64Data: string, scale?: number): Promise<
   return invoke<string>("upscale_image", { base64Data, scale });
 }
 
+// ===== Refine (ViTMatte) =====
+
+export interface RefineModelInfo {
+  name: string;
+  exists: boolean;
+  size_bytes: number;
+  approx_size: string;
+}
+
+export async function getRefineModelInfo(): Promise<RefineModelInfo> {
+  const invoke = await getInvoke();
+  return invoke<RefineModelInfo>("get_refine_model_info");
+}
+
+export async function downloadRefineModel(): Promise<void> {
+  const invoke = await getInvoke();
+  return invoke<void>("download_refine_model");
+}
+
+export async function refineResult(base64Data: string, originalPath: string): Promise<string> {
+  const invoke = await getInvoke();
+  return invoke<string>("refine_result", { base64Data, originalPath });
+}
+
 export async function saveImage(base64Data: string, savePath: string): Promise<void> {
   const invoke = await getInvoke();
   return invoke<void>("save_image", { base64Data, savePath });

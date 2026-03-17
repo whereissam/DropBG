@@ -6,6 +6,8 @@ import {
   setAutoRouting,
   getUpscaleModelInfo,
   downloadUpscaleModel,
+  getRefineModelInfo,
+  downloadRefineModel,
   openPathInFinder,
   openUrlInBrowser,
   setModelDir,
@@ -14,6 +16,7 @@ import {
   deleteModel,
   type ModelInfo,
   type UpscaleModelInfo,
+  type RefineModelInfo,
 } from "../tauri";
 
 interface Props {
@@ -37,11 +40,15 @@ export default function Settings({ onClose, onModelDeleted, onToast }: Props) {
   const [upscaleInfo, setUpscaleInfo] = useState<UpscaleModelInfo | null>(null);
   const [upscaleDownloading, setUpscaleDownloading] = useState(false);
   const [upscaleProgress, setUpscaleProgress] = useState(0);
+  const [refineInfo, setRefineInfo] = useState<RefineModelInfo | null>(null);
+  const [refineDownloading, setRefineDownloading] = useState(false);
+  const [refineProgress, setRefineProgress] = useState(0);
 
   useEffect(() => {
     loadInfo();
     getOutputDir().then(setOutputDirState).catch(() => {});
     getAutoRouting().then(setAutoRoutingState).catch(() => {});
+    getRefineModelInfo().then(setRefineInfo).catch(() => {});
     getUpscaleModelInfo().then(setUpscaleInfo).catch(() => {});
   }, []);
 
@@ -141,6 +148,29 @@ export default function Settings({ onClose, onModelDeleted, onToast }: Props) {
       onToast("Upscale download failed: " + e.toString(), "error");
     } finally {
       setUpscaleDownloading(false);
+    }
+  }
+
+  async function handleDownloadRefine() {
+    setRefineDownloading(true);
+    setRefineProgress(0);
+    try {
+      const { listen } = await import("@tauri-apps/api/event");
+      const unlisten = await listen<number>("refine-download-progress", (e) => {
+        setRefineProgress(e.payload);
+      });
+      try {
+        await downloadRefineModel();
+        const updated = await getRefineModelInfo().catch(() => null);
+        setRefineInfo(updated);
+        onToast("Refinement model downloaded!", "success");
+      } finally {
+        unlisten();
+      }
+    } catch (e: any) {
+      onToast("Refine download failed: " + e.toString(), "error");
+    } finally {
+      setRefineDownloading(false);
     }
   }
 
@@ -376,6 +406,46 @@ export default function Settings({ onClose, onModelDeleted, onToast }: Props) {
               <button className="sa-btn sa-btn-accent" onClick={handleDownloadUpscale}>
                 <DownloadIcon />
                 Download Upscale Model ({upscaleInfo.approx_size})
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* ===== Refine Model Section ===== */}
+        <div className="settings-section">
+          <h3>Alpha Refinement</h3>
+          {refineInfo ? (
+            <div className="settings-info">
+              <div className="si-row">
+                <span className="si-label">Model</span>
+                <span className="si-value">{refineInfo.name}</span>
+              </div>
+              <div className="si-row">
+                <span className="si-label">Status</span>
+                <span className={`si-value ${refineInfo.exists ? "text-green" : "text-yellow"}`}>
+                  {refineInfo.exists
+                    ? `Downloaded (${formatBytes(refineInfo.size_bytes)})`
+                    : `Not downloaded (${refineInfo.approx_size})`}
+                </span>
+              </div>
+            </div>
+          ) : (
+            <p className="settings-loading">Loading...</p>
+          )}
+          {refineDownloading && (
+            <div className="upscale-progress">
+              <div className="upscale-progress-bar" style={{ width: `${refineProgress}%` }} />
+              <span className="upscale-progress-text">{refineProgress}%</span>
+            </div>
+          )}
+          <p className="settings-hint">
+            Two-stage pipeline: BiRefNet gives a coarse mask, then ViTMatte refines the edges for hair, fur, and transparency. Click "Refine" in the toolbar after removing the background.
+          </p>
+          {refineInfo && !refineInfo.exists && !refineDownloading && (
+            <div className="settings-actions">
+              <button className="sa-btn sa-btn-accent" onClick={handleDownloadRefine}>
+                <DownloadIcon />
+                Download Refine Model ({refineInfo.approx_size})
               </button>
             </div>
           )}

@@ -4,6 +4,7 @@ mod inference;
 mod model;
 
 use inference::face_detect::FaceDetectState;
+use inference::refine::RefineState;
 use inference::session::SessionState;
 use inference::upscale::UpscaleSessionState;
 
@@ -15,6 +16,7 @@ pub fn run() {
         .manage(SessionState::new())
         .manage(UpscaleSessionState::new())
         .manage(FaceDetectState::new())
+        .manage(RefineState::new())
         .invoke_handler(tauri::generate_handler![
             commands::check_model_ready,
             commands::is_onboarding_done,
@@ -40,6 +42,9 @@ pub fn run() {
             commands::save_image,
             commands::get_auto_routing,
             commands::set_auto_routing,
+            commands::get_refine_model_info,
+            commands::download_refine_model,
+            commands::refine_result,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
