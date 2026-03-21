@@ -218,6 +218,19 @@
 .setup-btn:hover { background: #d63851; }
 
 .setup-progress { margin-bottom: 0.5rem; }
+.setup-skip-vision {
+  width: 100%;
+  padding: 0.6rem 1rem;
+  margin-top: 0.6rem;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  color: #8ac;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: all 0.2s;
+}
+.setup-skip-vision:hover { background: rgba(255, 255, 255, 0.1); color: #bdf; }
 .setup-footer { margin: 1rem 0 0; font-size: 0.75rem; color: #555; }
 
 /* ===== Onboarding ===== */

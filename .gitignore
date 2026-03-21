@@ -8,6 +8,9 @@ build/
 # Rust
 src-tauri/target/
 
+# Swift Package Manager
+src-tauri/swift-lib/.build/
+
 # Model files (large binaries)
 src-tauri/models/*.onnx
 

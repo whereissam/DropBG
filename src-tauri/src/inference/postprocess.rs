@@ -67,6 +67,7 @@ fn fill_small_holes(mask: &mut GrayImage, threshold: u8) {
 
 /// Apply the mask output from the model onto the original image as an alpha channel.
 /// Includes edge refinement: small-hole filling + edge blur for smooth edges.
+#[allow(dead_code)]
 pub fn apply_mask(
     original: &DynamicImage,
     mask_data: &[f32],

@@ -1,3 +1,4 @@
+pub mod apple_vision;
 pub mod face_detect;
 pub mod postprocess;
 pub mod preprocess;

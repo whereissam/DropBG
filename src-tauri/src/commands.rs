@@ -87,6 +87,36 @@ fn emit_progress(app: &AppHandle, step: &str, percent: f64) {
 }
 
 #[tauri::command]
+pub fn apple_vision_available() -> bool {
+    crate::inference::apple_vision::is_available()
+}
+
+#[tauri::command]
+pub async fn remove_background_apple_vision(
+    app: AppHandle,
+    image_path: String,
+) -> Result<String, String> {
+    let path = PathBuf::from(&image_path);
+    if !path.exists() {
+        return Err(format!("File not found: {}", image_path));
+    }
+
+    emit_progress(&app, "Running Apple Vision...", 30.0);
+
+    let app_handle = app.clone();
+    let path_str = image_path.clone();
+
+    let result = tokio::task::spawn_blocking(move || {
+        crate::inference::apple_vision::remove_background(&path_str)
+    })
+    .await
+    .map_err(|e| e.to_string())?;
+
+    emit_progress(&app_handle, "Done!", 100.0);
+    result
+}
+
+#[tauri::command]
 pub fn check_model_ready() -> bool {
     downloader::model_path().map_or(false, |p| p.exists())
 }

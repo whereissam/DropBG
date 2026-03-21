@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { checkModelReady, isOnboardingDone, completeOnboarding, downloadModel, openPathInFinder, getModelInfo, getOutputDir, removeBackgroundBatch } from "./tauri";
+import { checkModelReady, isOnboardingDone, completeOnboarding, downloadModel, openPathInFinder, getModelInfo, getOutputDir, removeBackgroundBatch, appleVisionAvailable, removeBackgroundAppleVision } from "./tauri";
 import DropZone from "./components/DropZone";
 import Onboarding from "./components/Onboarding";
 import ModelSetup from "./components/ModelSetup";
@@ -28,6 +28,7 @@ export default function App() {
   const [downloadError, setDownloadError] = useState<string | null>(null);
   const [toasts, setToasts] = useState<ToastData[]>([]);
   const [showSettings, setShowSettings] = useState(false);
+  const [useAppleVision, setUseAppleVision] = useState(false);
 
   // Single image state
   const [originalPath, setOriginalPath] = useState<string | null>(null);
@@ -64,7 +65,18 @@ export default function App() {
           return;
         }
         const ready = await checkModelReady();
-        setStage(ready ? "ready" : "setup");
+        if (ready) {
+          setStage("ready");
+        } else {
+          // No model downloaded — use Apple Vision as fallback if available
+          const hasVision = await appleVisionAvailable().catch(() => false);
+          if (hasVision) {
+            setUseAppleVision(true);
+            setStage("ready");
+          } else {
+            setStage("setup");
+          }
+        }
       } catch {
         setStage("setup");
       }
@@ -84,6 +96,7 @@ export default function App() {
 
       try {
         await downloadModel();
+        setUseAppleVision(false);
         setStage("ready");
 
         const info = await getModelInfo().catch(() => null);
@@ -137,8 +150,13 @@ export default function App() {
         setOriginalUrl(URL.createObjectURL(blob));
       } catch { /* skip preview if fs read fails */ }
 
-      const { removeBackground } = await import("./tauri");
-      const base64 = await removeBackground(filePath);
+      let base64: string;
+      if (useAppleVision) {
+        base64 = await removeBackgroundAppleVision(filePath);
+      } else {
+        const { removeBackground } = await import("./tauri");
+        base64 = await removeBackground(filePath);
+      }
       setTransparentBase64(base64);
       setResultBase64(base64);
     } catch (e: any) {
@@ -262,7 +280,17 @@ export default function App() {
           onComplete={async () => {
             await completeOnboarding().catch(() => {});
             const ready = await checkModelReady().catch(() => false);
-            setStage(ready ? "ready" : "setup");
+            if (ready) {
+              setStage("ready");
+            } else {
+              const hasVision = await appleVisionAvailable().catch(() => false);
+              if (hasVision) {
+                setUseAppleVision(true);
+                setStage("ready");
+              } else {
+                setStage("setup");
+              }
+            }
           }}
         />
       ) : stage === "setup" || stage === "downloading" ? (
@@ -271,6 +299,11 @@ export default function App() {
           progress={downloadProgress}
           error={downloadError}
           onDownload={startDownload}
+          onSkipWithVision={() => {
+            setUseAppleVision(true);
+            setStage("ready");
+            addToast("Using Apple Vision. Download a model in Settings for better quality.", "info");
+          }}
         />
       ) : isBatchMode ? (
         <BatchList

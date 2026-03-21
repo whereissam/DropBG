@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getModelInfo, openPathInFinder, setModelDir, type ModelInfo } from "../tauri";
+import { getModelInfo, openPathInFinder, setModelDir, appleVisionAvailable, type ModelInfo } from "../tauri";
 import logoSvg from "../assets/logo.svg";
 
 interface Props {
@@ -7,9 +7,15 @@ interface Props {
   progress: number;
   error: string | null;
   onDownload: () => void;
+  onSkipWithVision?: () => void;
 }
 
-export default function ModelSetup({ downloading, progress, error, onDownload }: Props) {
+export default function ModelSetup({ downloading, progress, error, onDownload, onSkipWithVision }: Props) {
+  const [hasVision, setHasVision] = useState(false);
+
+  useEffect(() => {
+    appleVisionAvailable().then(setHasVision).catch(() => {});
+  }, []);
   const [info, setInfo] = useState<ModelInfo | null>(null);
 
   useEffect(() => {
@@ -101,8 +107,19 @@ export default function ModelSetup({ downloading, progress, error, onDownload }:
           </button>
         )}
 
+        {hasVision && onSkipWithVision && !downloading && (
+          <button
+            className="setup-skip-vision"
+            onClick={onSkipWithVision}
+          >
+            Skip — Use Apple Vision instead (no download)
+          </button>
+        )}
+
         <p className="setup-footer">
-          One-time setup. After this, everything runs 100% offline.
+          {hasVision
+            ? "Download a model for best quality, or use Apple Vision for instant results."
+            : "One-time setup. After this, everything runs 100% offline."}
         </p>
       </div>
     </div>

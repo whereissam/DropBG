@@ -30,6 +30,16 @@ export interface ModelInfo {
   alternatives: AlternativeModel[];
 }
 
+export async function appleVisionAvailable(): Promise<boolean> {
+  const invoke = await getInvoke();
+  return invoke<boolean>("apple_vision_available");
+}
+
+export async function removeBackgroundAppleVision(imagePath: string): Promise<string> {
+  const invoke = await getInvoke();
+  return invoke<string>("remove_background_apple_vision", { imagePath });
+}
+
 export async function checkModelReady(): Promise<boolean> {
   const invoke = await getInvoke();
   return invoke<boolean>("check_model_ready");

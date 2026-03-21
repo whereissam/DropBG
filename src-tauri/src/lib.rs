@@ -18,6 +18,8 @@ pub fn run() {
         .manage(FaceDetectState::new())
         .manage(RefineState::new())
         .invoke_handler(tauri::generate_handler![
+            commands::apple_vision_available,
+            commands::remove_background_apple_vision,
             commands::check_model_ready,
             commands::is_onboarding_done,
             commands::complete_onboarding,
