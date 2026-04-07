@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { checkModelReady, isOnboardingDone, completeOnboarding, downloadModel, openPathInFinder, getModelInfo, getOutputDir, removeBackgroundBatch, appleVisionAvailable, removeBackgroundAppleVision } from "./tauri";
+import { checkModelReady, isOnboardingDone, completeOnboarding, downloadModel, openPathInFinder, getModelInfo, getOutputDir, removeBackgroundBatch, appleVisionAvailable, removeBackgroundAppleVision, getCloudConfig, removeBackgroundCloud } from "./tauri";
 import DropZone from "./components/DropZone";
 import Onboarding from "./components/Onboarding";
 import ModelSetup from "./components/ModelSetup";
@@ -68,13 +68,19 @@ export default function App() {
         if (ready) {
           setStage("ready");
         } else {
-          // No model downloaded — use Apple Vision as fallback if available
-          const hasVision = await appleVisionAvailable().catch(() => false);
-          if (hasVision) {
-            setUseAppleVision(true);
+          // Check if cloud mode is enabled — skip model setup
+          const cloud = await getCloudConfig().catch(() => null);
+          if (cloud?.enabled && cloud.has_api_key) {
             setStage("ready");
           } else {
-            setStage("setup");
+            // No model downloaded — use Apple Vision as fallback if available
+            const hasVision = await appleVisionAvailable().catch(() => false);
+            if (hasVision) {
+              setUseAppleVision(true);
+              setStage("ready");
+            } else {
+              setStage("setup");
+            }
           }
         }
       } catch {
@@ -151,7 +157,11 @@ export default function App() {
       } catch { /* skip preview if fs read fails */ }
 
       let base64: string;
-      if (useAppleVision) {
+      // Check if cloud mode is enabled
+      const cloud = await getCloudConfig().catch(() => null);
+      if (cloud?.enabled && cloud.has_api_key) {
+        base64 = await removeBackgroundCloud(filePath);
+      } else if (useAppleVision) {
         base64 = await removeBackgroundAppleVision(filePath);
       } else {
         const { removeBackground } = await import("./tauri");

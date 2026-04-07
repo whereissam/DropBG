@@ -12,6 +12,7 @@ pub enum ModelVariant {
     BEN2,
     RMBG2,
     MODNet,
+    InSPyReNet,
     Portrait,
     General,
     Matting,
@@ -35,6 +36,7 @@ impl ModelVariant {
             ModelVariant::Dynamic,
             ModelVariant::BEN2,
             ModelVariant::RMBG2,
+            ModelVariant::InSPyReNet,
             ModelVariant::MODNet,
         ]
     }
@@ -49,6 +51,7 @@ impl ModelVariant {
             ModelVariant::Dynamic => "BiRefNet Dynamic",
             ModelVariant::BEN2 => "BEN2",
             ModelVariant::RMBG2 => "RMBG 2.0",
+            ModelVariant::InSPyReNet => "InSPyReNet",
             ModelVariant::MODNet => "MODNet",
         }
     }
@@ -63,6 +66,7 @@ impl ModelVariant {
             ModelVariant::Dynamic => "birefnet_dynamic_fp16.onnx",
             ModelVariant::BEN2 => "ben2_fp16.onnx",
             ModelVariant::RMBG2 => "rmbg2_fp16.onnx",
+            ModelVariant::InSPyReNet => "inspyrenet_fp16.onnx",
             ModelVariant::MODNet => "modnet_fp16.onnx",
         }
     }
@@ -79,6 +83,7 @@ impl ModelVariant {
             ModelVariant::Dynamic => "",
             ModelVariant::BEN2 => "https://huggingface.co/onnx-community/BEN2-ONNX/resolve/main/onnx/model_fp16.onnx",
             ModelVariant::RMBG2 => "https://huggingface.co/briaai/RMBG-2.0/resolve/main/onnx/model_fp16.onnx",
+            ModelVariant::InSPyReNet => "https://huggingface.co/OS-Software/InSPyReNet-SwinB-Plus-Ultra-ONNX/resolve/main/onnx/model_fp16.onnx",
             ModelVariant::MODNet => "https://huggingface.co/Xenova/modnet/resolve/main/onnx/model_fp16.onnx",
         }
     }
@@ -89,6 +94,7 @@ impl ModelVariant {
             ModelVariant::RMBG2 => Some("https://huggingface.co/briaai/RMBG-2.0/blob/main/onnx/model_fp16.onnx"),
             ModelVariant::Matting => Some("https://huggingface.co/ZhengPeng7/BiRefNet_lite-matting"),
             ModelVariant::Dynamic => Some("https://huggingface.co/ZhengPeng7/BiRefNet_dynamic"),
+            ModelVariant::InSPyReNet => None,
             _ => None,
         }
     }
@@ -108,6 +114,7 @@ impl ModelVariant {
             ModelVariant::Dynamic => "~490 MB",
             ModelVariant::BEN2 => "~219 MB",
             ModelVariant::RMBG2 => "~514 MB",
+            ModelVariant::InSPyReNet => "~300 MB",
             ModelVariant::MODNet => "~13 MB",
         }
     }
@@ -122,6 +129,7 @@ impl ModelVariant {
             ModelVariant::Dynamic => "Native resolution 256-2304px, no resize artifacts (export required)",
             ModelVariant::BEN2 => "Best on hair & fine edges, handles complex scenes",
             ModelVariant::RMBG2 => "BRIA's enhanced BiRefNet, excellent quality (manual download)",
+            ModelVariant::InSPyReNet => "Excellent on fuzzy edges, hair strands & fine detail",
             ModelVariant::MODNet => "Lightweight, optimized for portraits (legacy)",
         }
     }
@@ -130,6 +138,7 @@ impl ModelVariant {
     pub fn input_size(&self) -> u32 {
         match self {
             ModelVariant::MODNet => 512,
+            ModelVariant::InSPyReNet => 1024,
             ModelVariant::Dynamic => 0, // native resolution
             _ => 1024,
         }
@@ -163,6 +172,7 @@ impl ModelVariant {
             ModelVariant::Dynamic => "Dynamic",
             ModelVariant::BEN2 => "BEN2",
             ModelVariant::RMBG2 => "RMBG2",
+            ModelVariant::InSPyReNet => "InSPyReNet",
             ModelVariant::MODNet => "MODNet",
         }
     }
@@ -177,6 +187,7 @@ impl ModelVariant {
             "Dynamic" => Some(ModelVariant::Dynamic),
             "BEN2" => Some(ModelVariant::BEN2),
             "RMBG2" => Some(ModelVariant::RMBG2),
+            "InSPyReNet" => Some(ModelVariant::InSPyReNet),
             "MODNet" => Some(ModelVariant::MODNet),
             _ => None,
         }
@@ -264,6 +275,54 @@ where
     Ok(())
 }
 
+// ===== Cloud Provider =====
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub enum CloudProvider {
+    Replicate,
+    FalAI,
+    RemoveBg,
+}
+
+impl CloudProvider {
+    pub fn name(&self) -> &str {
+        match self {
+            CloudProvider::Replicate => "Replicate",
+            CloudProvider::FalAI => "fal.ai",
+            CloudProvider::RemoveBg => "remove.bg",
+        }
+    }
+
+    pub fn all() -> &'static [CloudProvider] {
+        &[CloudProvider::Replicate, CloudProvider::FalAI, CloudProvider::RemoveBg]
+    }
+
+    pub fn variant_key(&self) -> &str {
+        match self {
+            CloudProvider::Replicate => "Replicate",
+            CloudProvider::FalAI => "FalAI",
+            CloudProvider::RemoveBg => "RemoveBg",
+        }
+    }
+
+    pub fn from_key(key: &str) -> Option<CloudProvider> {
+        match key {
+            "Replicate" => Some(CloudProvider::Replicate),
+            "FalAI" => Some(CloudProvider::FalAI),
+            "RemoveBg" => Some(CloudProvider::RemoveBg),
+            _ => None,
+        }
+    }
+
+    pub fn description(&self) -> &str {
+        match self {
+            CloudProvider::Replicate => "Cheapest (~$0.0004/img), runs BiRefNet on cloud GPUs",
+            CloudProvider::FalAI => "Fast & reliable (~$0.018/img), RMBG 2.0 + BiRefNet",
+            CloudProvider::RemoveBg => "Best polish (~$0.10/img), proprietary model",
+        }
+    }
+}
+
 // ===== Config =====
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -277,6 +336,16 @@ pub struct AppConfig {
     pub onboarding_done: bool,
     #[serde(default)]
     pub auto_model_routing: bool,
+    #[serde(default)]
+    pub cloud_enabled: bool,
+    #[serde(default = "default_cloud_provider")]
+    pub cloud_provider: CloudProvider,
+    #[serde(default)]
+    pub cloud_api_key: String,
+}
+
+fn default_cloud_provider() -> CloudProvider {
+    CloudProvider::Replicate
 }
 
 impl Default for AppConfig {
@@ -289,7 +358,16 @@ impl Default for AppConfig {
             model_variant: ModelVariant::default(),
             onboarding_done: false,
             auto_model_routing: false,
+            cloud_enabled: false,
+            cloud_provider: default_cloud_provider(),
+            cloud_api_key: String::new(),
         }
+    }
+}
+
+impl Default for CloudProvider {
+    fn default() -> Self {
+        CloudProvider::Replicate
     }
 }
 
@@ -355,13 +433,7 @@ pub fn load_config() -> anyhow::Result<AppConfig> {
         let config: AppConfig = serde_json::from_str(&data)?;
         Ok(config)
     } else {
-        Ok(AppConfig {
-            model_dir: default_model_dir()?.to_string_lossy().to_string(),
-            output_dir: default_output_dir()?.to_string_lossy().to_string(),
-            model_variant: ModelVariant::default(),
-            onboarding_done: false,
-            auto_model_routing: false,
-        })
+        Ok(AppConfig::default())
     }
 }
 

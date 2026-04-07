@@ -40,7 +40,7 @@
 ## Phase 4: Model Quality ✅
 
 - [x] Add full BiRefNet model (~900 MB) as "High Quality" option for complex backgrounds
-- [x] Model selector in Settings (multi-model: BiRefNet Lite, BiRefNet Full, BEN2, MODNet)
+- [x] Model selector in Settings (multi-model: BiRefNet Lite, BiRefNet Full, BEN2, InSPyReNet, MODNet)
 - [x] Auto-download selected model variant
 - [x] Allow switching models without restarting (hot-swap via session clear)
 - [x] BEN2 (219 MB) — best on hair & fine edges, MIT license
@@ -75,6 +75,19 @@
 - [ ] macOS code signing & notarization
 - [ ] GitHub releases with DMG attached
 - [ ] Performance benchmarks on Apple Silicon (M1/M2/M3)
+
+## Phase 8: Cloud API & Model Expansion
+
+- [x] Add InSPyReNet model (SwinB Plus Ultra, ~300 MB, best on fuzzy edges/hair strands)
+- [x] Cloud API provider framework (Replicate, fal.ai, remove.bg)
+- [x] API key management in Settings (encrypted local storage)
+- [x] Cloud/local toggle — switch between local inference and cloud API
+- [x] Replicate integration (BiRefNet on A100 GPU, ~$0.0004/image)
+- [x] fal.ai integration (BiRefNet + RMBG 2.0, ~$0.018/image)
+- [x] remove.bg integration (proprietary model, ~$0.10/image)
+- [x] Skip model download when cloud mode enabled
+- [ ] Cloud batch processing
+- [ ] Usage tracking / cost estimation per session
 
 ## Stretch Goals
 

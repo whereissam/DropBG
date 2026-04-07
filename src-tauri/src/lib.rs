@@ -47,6 +47,11 @@ pub fn run() {
             commands::get_refine_model_info,
             commands::download_refine_model,
             commands::refine_result,
+            commands::get_cloud_config,
+            commands::set_cloud_enabled,
+            commands::set_cloud_provider,
+            commands::set_cloud_api_key,
+            commands::remove_background_cloud,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

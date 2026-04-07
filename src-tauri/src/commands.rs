@@ -765,6 +765,97 @@ pub async fn refine_result(
     .map_err(|e| e.to_string())?
 }
 
+// ===== Cloud API commands =====
+
+#[tauri::command]
+pub fn get_cloud_config() -> Result<serde_json::Value, String> {
+    let config = downloader::load_config().map_err(|e| e.to_string())?;
+    let providers: Vec<serde_json::Value> = downloader::CloudProvider::all()
+        .iter()
+        .map(|p| {
+            serde_json::json!({
+                "key": p.variant_key(),
+                "name": p.name(),
+                "description": p.description(),
+            })
+        })
+        .collect();
+
+    Ok(serde_json::json!({
+        "enabled": config.cloud_enabled,
+        "provider": config.cloud_provider.variant_key(),
+        "provider_name": config.cloud_provider.name(),
+        "has_api_key": !config.cloud_api_key.is_empty(),
+        "providers": providers,
+    }))
+}
+
+#[tauri::command]
+pub fn set_cloud_enabled(enabled: bool) -> Result<(), String> {
+    let mut config = downloader::load_config().map_err(|e| e.to_string())?;
+    config.cloud_enabled = enabled;
+    downloader::save_config(&config).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn set_cloud_provider(provider: String) -> Result<(), String> {
+    let p = downloader::CloudProvider::from_key(&provider)
+        .ok_or_else(|| format!("Unknown provider: {provider}"))?;
+    let mut config = downloader::load_config().map_err(|e| e.to_string())?;
+    config.cloud_provider = p;
+    downloader::save_config(&config).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn set_cloud_api_key(api_key: String) -> Result<(), String> {
+    let mut config = downloader::load_config().map_err(|e| e.to_string())?;
+    config.cloud_api_key = api_key;
+    downloader::save_config(&config).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn remove_background_cloud(
+    app: AppHandle,
+    image_path: String,
+) -> Result<String, String> {
+    let path = PathBuf::from(&image_path);
+    if !path.exists() {
+        return Err(format!("File not found: {}", image_path));
+    }
+
+    let app_handle = app.clone();
+
+    tokio::task::spawn_blocking(move || {
+        emit_progress(&app_handle, "Reading image...", 10.0);
+        let image_bytes = std::fs::read(&path)
+            .map_err(|e| format!("Failed to read image: {e}"))?;
+
+        emit_progress(&app_handle, "Uploading to cloud API...", 25.0);
+        let result_bytes = crate::inference::cloud::remove_background_cloud(&image_bytes)?;
+
+        emit_progress(&app_handle, "Processing result...", 85.0);
+
+        // Ensure result is valid PNG — re-encode through image crate
+        let img = image::load_from_memory(&result_bytes)
+            .map_err(|e| format!("Failed to decode cloud result: {e}"))?;
+        let rgba = img.to_rgba8();
+
+        emit_progress(&app_handle, "Encoding PNG...", 92.0);
+        let mut buf = Vec::new();
+        image::DynamicImage::ImageRgba8(rgba)
+            .write_to(
+                &mut std::io::Cursor::new(&mut buf),
+                image::ImageFormat::Png,
+            )
+            .map_err(|e| format!("Failed to encode PNG: {e}"))?;
+
+        emit_progress(&app_handle, "Done!", 100.0);
+        Ok(base64::engine::general_purpose::STANDARD.encode(&buf))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 #[tauri::command]
 pub async fn save_image(base64_data: String, save_path: String) -> Result<(), String> {
     // Only allow saving PNG files

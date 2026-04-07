@@ -8,6 +8,10 @@ import {
   downloadUpscaleModel,
   getRefineModelInfo,
   downloadRefineModel,
+  getCloudConfig,
+  setCloudEnabled,
+  setCloudProvider,
+  setCloudApiKey,
   openPathInFinder,
   openUrlInBrowser,
   setModelDir,
@@ -17,6 +21,7 @@ import {
   type ModelInfo,
   type UpscaleModelInfo,
   type RefineModelInfo,
+  type CloudConfig,
 } from "../tauri";
 
 interface Props {
@@ -43,6 +48,9 @@ export default function Settings({ onClose, onModelDeleted, onToast }: Props) {
   const [refineInfo, setRefineInfo] = useState<RefineModelInfo | null>(null);
   const [refineDownloading, setRefineDownloading] = useState(false);
   const [refineProgress, setRefineProgress] = useState(0);
+  const [cloudConfig, setCloudConfig] = useState<CloudConfig | null>(null);
+  const [apiKeyInput, setApiKeyInput] = useState("");
+  const [apiKeySaved, setApiKeySaved] = useState(false);
 
   useEffect(() => {
     loadInfo();
@@ -50,6 +58,7 @@ export default function Settings({ onClose, onModelDeleted, onToast }: Props) {
     getAutoRouting().then(setAutoRoutingState).catch(() => {});
     getRefineModelInfo().then(setRefineInfo).catch(() => {});
     getUpscaleModelInfo().then(setUpscaleInfo).catch(() => {});
+    getCloudConfig().then(setCloudConfig).catch(() => {});
   }, []);
 
   async function loadInfo() {
@@ -448,6 +457,113 @@ export default function Settings({ onClose, onModelDeleted, onToast }: Props) {
                 Download Refine Model ({refineInfo.approx_size})
               </button>
             </div>
+          )}
+        </div>
+
+        {/* ===== Cloud API Section ===== */}
+        <div className="settings-section">
+          <h3>Cloud API</h3>
+          <p className="settings-hint" style={{ marginBottom: 8 }}>
+            Use cloud GPU services for background removal. No local model download needed. Bring your own API key.
+          </p>
+
+          {cloudConfig && (
+            <>
+              {/* Enable toggle */}
+              <div className="auto-routing-toggle">
+                <label className="toggle-row">
+                  <div>
+                    <strong>Enable cloud processing</strong>
+                    <p>Use cloud API instead of local models</p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={cloudConfig.enabled}
+                    onChange={async (e) => {
+                      const enabled = e.target.checked;
+                      try {
+                        await setCloudEnabled(enabled);
+                        setCloudConfig({ ...cloudConfig, enabled });
+                        onToast(enabled ? "Cloud mode enabled" : "Switched to local models", "info");
+                      } catch (err: any) {
+                        onToast("Failed: " + err.toString(), "error");
+                      }
+                    }}
+                  />
+                </label>
+              </div>
+
+              {cloudConfig.enabled && (
+                <>
+                  {/* Provider selector */}
+                  <div className="model-switcher" style={{ marginTop: 8 }}>
+                    {cloudConfig.providers.map((p) => (
+                      <div
+                        key={p.key}
+                        className={`model-option ${p.key === cloudConfig.provider ? "active" : "clickable"}`}
+                        onClick={p.key !== cloudConfig.provider ? async () => {
+                          try {
+                            await setCloudProvider(p.key);
+                            setCloudConfig({ ...cloudConfig, provider: p.key, provider_name: p.name });
+                            onToast(`Switched to ${p.name}`, "success");
+                          } catch (err: any) {
+                            onToast(err.toString(), "error");
+                          }
+                        } : undefined}
+                      >
+                        <div className="model-option-header">
+                          <span className={`model-option-dot ${p.key === cloudConfig.provider ? "active" : ""}`} />
+                          <span className="model-option-name">{p.name}</span>
+                        </div>
+                        <span className="model-option-desc">{p.description}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* API key input */}
+                  <div style={{ marginTop: 8 }}>
+                    <div className="si-row" style={{ flexDirection: "column", alignItems: "stretch", gap: 6 }}>
+                      <span className="si-label">API Key</span>
+                      <div style={{ display: "flex", gap: 6 }}>
+                        <input
+                          type="password"
+                          placeholder={cloudConfig.has_api_key ? "••••••••  (key saved)" : `Enter ${cloudConfig.provider_name} API key`}
+                          value={apiKeyInput}
+                          onChange={(e) => { setApiKeyInput(e.target.value); setApiKeySaved(false); }}
+                          style={{
+                            flex: 1,
+                            padding: "6px 10px",
+                            borderRadius: "var(--radius-sm)",
+                            border: "1px solid var(--border)",
+                            background: "var(--surface)",
+                            color: "var(--text-primary)",
+                            fontSize: "0.8rem",
+                            fontFamily: "monospace",
+                          }}
+                        />
+                        <button
+                          className="sa-btn sa-btn-accent"
+                          disabled={!apiKeyInput.trim() || apiKeySaved}
+                          onClick={async () => {
+                            try {
+                              await setCloudApiKey(apiKeyInput.trim());
+                              setCloudConfig({ ...cloudConfig, has_api_key: true });
+                              setApiKeySaved(true);
+                              onToast("API key saved", "success");
+                            } catch (err: any) {
+                              onToast(err.toString(), "error");
+                            }
+                          }}
+                          style={{ whiteSpace: "nowrap" }}
+                        >
+                          {apiKeySaved ? "Saved" : "Save"}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
+            </>
           )}
         </div>
 

@@ -204,3 +204,44 @@ export async function saveImage(base64Data: string, savePath: string): Promise<v
   const invoke = await getInvoke();
   return invoke<void>("save_image", { base64Data, savePath });
 }
+
+// ===== Cloud API =====
+
+export interface CloudProviderInfo {
+  key: string;
+  name: string;
+  description: string;
+}
+
+export interface CloudConfig {
+  enabled: boolean;
+  provider: string;
+  provider_name: string;
+  has_api_key: boolean;
+  providers: CloudProviderInfo[];
+}
+
+export async function getCloudConfig(): Promise<CloudConfig> {
+  const invoke = await getInvoke();
+  return invoke<CloudConfig>("get_cloud_config");
+}
+
+export async function setCloudEnabled(enabled: boolean): Promise<void> {
+  const invoke = await getInvoke();
+  return invoke<void>("set_cloud_enabled", { enabled });
+}
+
+export async function setCloudProvider(provider: string): Promise<void> {
+  const invoke = await getInvoke();
+  return invoke<void>("set_cloud_provider", { provider });
+}
+
+export async function setCloudApiKey(apiKey: string): Promise<void> {
+  const invoke = await getInvoke();
+  return invoke<void>("set_cloud_api_key", { apiKey });
+}
+
+export async function removeBackgroundCloud(imagePath: string): Promise<string> {
+  const invoke = await getInvoke();
+  return invoke<string>("remove_background_cloud", { imagePath });
+}

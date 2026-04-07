@@ -12,15 +12,17 @@
 
 ## Why DropBG?
 
-- **100% local** — images never leave your machine
+- **Local-first** — images never leave your machine by default
 - **Free & unlimited** — no per-image fees or resolution caps
 - **Fast on Apple Silicon** — leverages CoreML / Neural Engine
 - **One-time setup** — download the AI model once, then everything runs offline
+- **Optional cloud API** — use Replicate, fal.ai, or remove.bg for cloud GPU processing
 
 ## Features
 
 - **Drag-and-drop** single or multiple images
-- **5 AI models** to choose from (BiRefNet Lite/Full, BEN2, RMBG 2.0, MODNet)
+- **6 AI models** to choose from (BiRefNet Lite/Full, BEN2, RMBG 2.0, InSPyReNet, MODNet)
+- **Cloud API support** — Replicate, fal.ai, remove.bg (bring your own key)
 - **Batch processing** with per-image progress and auto-naming
 - **Background replacement** — solid colors, gradients, or custom images
 - **AI upscaling** — 2x/4x super-resolution via Real-ESRGAN
@@ -30,13 +32,24 @@
 
 ## Available Models
 
-| Model | Size | Best For |
-|-------|------|----------|
-| BiRefNet Lite | ~200 MB | Fast, good for most images |
-| BiRefNet Full | ~900 MB | Complex backgrounds, high detail |
-| BEN2 | ~219 MB | Hair & fine edges, complex scenes |
-| RMBG 2.0 | ~514 MB | Best overall quality (manual download) |
-| MODNet | ~13 MB | Portraits & people (lightweight) |
+### Local Models (runs 100% offline)
+
+| Model | Size | Tier | Best For |
+|-------|------|------|----------|
+| BiRefNet Lite | ~200 MB | Default | Fast, good for most images |
+| BiRefNet Full | ~900 MB | Best quality | Complex backgrounds, high detail |
+| BEN2 | ~219 MB | Best edges | Hair, fur & fine edges |
+| RMBG 2.0 | ~514 MB | Best product | Clean ecommerce/product shots (manual download) |
+| InSPyReNet | ~300 MB | Best fuzzy | Fuzzy edges, hair strands & fine detail |
+| MODNet | ~13 MB | Lightweight | Real-time / portraits (legacy) |
+
+### Cloud API Providers (optional, bring your own key)
+
+| Provider | Cost | Model | Notes |
+|----------|------|-------|-------|
+| Replicate | ~$0.0004/img | BiRefNet on A100 GPU | Cheapest, same models on cloud GPUs |
+| fal.ai | ~$0.018/img | BiRefNet + RMBG 2.0 | Fast & reliable |
+| remove.bg | ~$0.10/img | Proprietary | Best polish, most mature API |
 
 ## Tech Stack
 
