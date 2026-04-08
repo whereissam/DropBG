@@ -6,14 +6,26 @@ use serde::Deserialize;
 /// Takes image bytes, returns PNG bytes with transparent background.
 pub fn remove_background_cloud(image_bytes: &[u8]) -> Result<Vec<u8>, String> {
     let config = load_config().map_err(|e| e.to_string())?;
-    if config.cloud_api_key.is_empty() {
+    let api_key = config.current_cloud_api_key();
+    if api_key.is_empty() {
         return Err("No API key configured. Add your key in Settings → Cloud API.".to_string());
     }
 
     match config.cloud_provider {
-        CloudProvider::Replicate => replicate_remove_bg(image_bytes, &config.cloud_api_key),
-        CloudProvider::FalAI => fal_remove_bg(image_bytes, &config.cloud_api_key),
-        CloudProvider::RemoveBg => removebg_remove_bg(image_bytes, &config.cloud_api_key),
+        CloudProvider::Replicate => replicate_remove_bg(image_bytes, api_key),
+        CloudProvider::FalAI => fal_remove_bg(image_bytes, api_key),
+        CloudProvider::RemoveBg => removebg_remove_bg(image_bytes, api_key),
+    }
+}
+
+/// Detect MIME type from image bytes magic number.
+fn detect_mime(bytes: &[u8]) -> (&str, &str) {
+    if bytes.starts_with(&[0x89, 0x50, 0x4E, 0x47]) {
+        ("image/png", "image.png")
+    } else if bytes.starts_with(b"RIFF") && bytes.len() > 12 && &bytes[8..12] == b"WEBP" {
+        ("image/webp", "image.webp")
+    } else {
+        ("image/jpeg", "image.jpeg")
     }
 }
 
@@ -40,11 +52,7 @@ fn replicate_remove_bg(image_bytes: &[u8], api_key: &str) -> Result<Vec<u8>, Str
         .map_err(|e| format!("HTTP client error: {e}"))?;
 
     let b64 = base64::engine::general_purpose::STANDARD.encode(image_bytes);
-    let mime = if image_bytes.starts_with(&[0x89, 0x50, 0x4E, 0x47]) {
-        "image/png"
-    } else {
-        "image/jpeg"
-    };
+    let (mime, _) = detect_mime(image_bytes);
     let data_uri = format!("data:{};base64,{}", mime, b64);
 
     // Use BiRefNet model on Replicate (most popular, 5.3M runs)
@@ -151,11 +159,7 @@ fn fal_remove_bg(image_bytes: &[u8], api_key: &str) -> Result<Vec<u8>, String> {
         .map_err(|e| format!("HTTP client error: {e}"))?;
 
     let b64 = base64::engine::general_purpose::STANDARD.encode(image_bytes);
-    let mime = if image_bytes.starts_with(&[0x89, 0x50, 0x4E, 0x47]) {
-        "image/png"
-    } else {
-        "image/jpeg"
-    };
+    let (mime, _) = detect_mime(image_bytes);
     let data_uri = format!("data:{};base64,{}", mime, b64);
 
     // Use fal.ai BiRefNet endpoint
@@ -207,9 +211,10 @@ fn removebg_remove_bg(image_bytes: &[u8], api_key: &str) -> Result<Vec<u8>, Stri
         .build()
         .map_err(|e| format!("HTTP client error: {e}"))?;
 
+    let (mime, filename) = detect_mime(image_bytes);
     let part = reqwest::blocking::multipart::Part::bytes(image_bytes.to_vec())
-        .file_name("image.png")
-        .mime_str("image/png")
+        .file_name(filename.to_string())
+        .mime_str(mime)
         .map_err(|e| format!("Multipart error: {e}"))?;
 
     let form = reqwest::blocking::multipart::Form::new()

@@ -340,8 +340,31 @@ pub struct AppConfig {
     pub cloud_enabled: bool,
     #[serde(default = "default_cloud_provider")]
     pub cloud_provider: CloudProvider,
+    /// Legacy single key — migrated to cloud_api_keys on load
     #[serde(default)]
     pub cloud_api_key: String,
+    /// Per-provider API keys: { "Replicate": "r8_...", "FalAI": "...", "RemoveBg": "..." }
+    #[serde(default)]
+    pub cloud_api_keys: std::collections::HashMap<String, String>,
+}
+
+impl AppConfig {
+    /// Get API key for the currently selected cloud provider.
+    pub fn current_cloud_api_key(&self) -> &str {
+        let key = self.cloud_provider.variant_key();
+        if let Some(k) = self.cloud_api_keys.get(key) {
+            if !k.is_empty() {
+                return k;
+            }
+        }
+        // Fallback to legacy single key
+        &self.cloud_api_key
+    }
+
+    /// Returns true if any API key is configured for the current provider.
+    pub fn has_cloud_api_key(&self) -> bool {
+        !self.current_cloud_api_key().is_empty()
+    }
 }
 
 fn default_cloud_provider() -> CloudProvider {
@@ -361,6 +384,7 @@ impl Default for AppConfig {
             cloud_enabled: false,
             cloud_provider: default_cloud_provider(),
             cloud_api_key: String::new(),
+            cloud_api_keys: std::collections::HashMap::new(),
         }
     }
 }

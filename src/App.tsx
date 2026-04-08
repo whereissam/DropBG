@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { checkModelReady, isOnboardingDone, completeOnboarding, downloadModel, openPathInFinder, getModelInfo, getOutputDir, removeBackgroundBatch, appleVisionAvailable, removeBackgroundAppleVision, getCloudConfig, removeBackgroundCloud } from "./tauri";
+import { checkModelReady, isOnboardingDone, completeOnboarding, downloadModel, openPathInFinder, getModelInfo, getOutputDir, removeBackgroundBatch, removeBackgroundBatchCloud, appleVisionAvailable, removeBackgroundAppleVision, getCloudConfig, removeBackgroundCloud } from "./tauri";
 import DropZone from "./components/DropZone";
 import Onboarding from "./components/Onboarding";
 import ModelSetup from "./components/ModelSetup";
@@ -219,7 +219,11 @@ export default function App() {
       });
 
       try {
-        const results = await removeBackgroundBatch(filePaths, outputDir);
+        // Route through cloud API if enabled
+        const cloud = await getCloudConfig().catch(() => null);
+        const results = (cloud?.enabled && cloud.has_api_key)
+          ? await removeBackgroundBatchCloud(filePaths, outputDir)
+          : await removeBackgroundBatch(filePaths, outputDir);
         const successCount = results.length;
         const failCount = filePaths.length - successCount;
 

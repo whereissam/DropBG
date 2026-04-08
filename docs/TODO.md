@@ -80,13 +80,13 @@
 
 - [x] Add InSPyReNet model (SwinB Plus Ultra, ~300 MB, best on fuzzy edges/hair strands)
 - [x] Cloud API provider framework (Replicate, fal.ai, remove.bg)
-- [x] API key management in Settings (encrypted local storage)
+- [x] API key management in Settings (local config file)
 - [x] Cloud/local toggle — switch between local inference and cloud API
 - [x] Replicate integration (BiRefNet on A100 GPU, ~$0.0004/image)
 - [x] fal.ai integration (BiRefNet + RMBG 2.0, ~$0.018/image)
 - [x] remove.bg integration (proprietary model, ~$0.10/image)
 - [x] Skip model download when cloud mode enabled
-- [ ] Cloud batch processing
+- [x] Cloud batch processing
 - [ ] Usage tracking / cost estimation per session
 
 ## Stretch Goals

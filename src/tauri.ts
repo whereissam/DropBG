@@ -245,3 +245,11 @@ export async function removeBackgroundCloud(imagePath: string): Promise<string> 
   const invoke = await getInvoke();
   return invoke<string>("remove_background_cloud", { imagePath });
 }
+
+export async function removeBackgroundBatchCloud(
+  imagePaths: string[],
+  outputDir: string,
+): Promise<string[]> {
+  const invoke = await getInvoke();
+  return invoke<string[]>("remove_background_batch_cloud", { imagePaths, outputDir });
+}

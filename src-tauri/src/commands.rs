@@ -467,6 +467,121 @@ pub async fn remove_background_batch(
 }
 
 #[tauri::command]
+pub async fn remove_background_batch_cloud(
+    app: AppHandle,
+    image_paths: Vec<String>,
+    output_dir: String,
+) -> Result<Vec<String>, String> {
+    if image_paths.is_empty() {
+        return Ok(vec![]);
+    }
+
+    let app_handle = app.clone();
+    let total = image_paths.len();
+
+    tokio::task::spawn_blocking(move || {
+        let mut output_paths = Vec::new();
+        let out_dir = PathBuf::from(&output_dir);
+        std::fs::create_dir_all(&out_dir)
+            .map_err(|e| format!("Failed to create output dir: {e}"))?;
+
+        for (i, image_path) in image_paths.iter().enumerate() {
+            let path = PathBuf::from(image_path);
+            let filename = path
+                .file_stem()
+                .map(|s| s.to_string_lossy().to_string())
+                .unwrap_or_else(|| format!("image_{i}"));
+            let display_name = path
+                .file_name()
+                .map(|s| s.to_string_lossy().to_string())
+                .unwrap_or_else(|| image_path.clone());
+
+            let _ = app_handle.emit(
+                "batch-progress",
+                BatchProgress {
+                    index: i,
+                    total,
+                    filename: display_name.clone(),
+                    status: "processing".to_string(),
+                    error: None,
+                    output_path: None,
+                },
+            );
+
+            let result = (|| -> Result<Vec<u8>, String> {
+                let image_bytes = std::fs::read(&path)
+                    .map_err(|e| format!("Failed to read image: {e}"))?;
+                let result_bytes = crate::inference::cloud::remove_background_cloud(&image_bytes)?;
+                // Re-encode through image crate to ensure valid PNG
+                let img = image::load_from_memory(&result_bytes)
+                    .map_err(|e| format!("Failed to decode cloud result: {e}"))?;
+                let mut buf = Vec::new();
+                image::DynamicImage::ImageRgba8(img.to_rgba8())
+                    .write_to(
+                        &mut std::io::Cursor::new(&mut buf),
+                        image::ImageFormat::Png,
+                    )
+                    .map_err(|e| format!("Failed to encode PNG: {e}"))?;
+                Ok(buf)
+            })();
+
+            match result {
+                Ok(png_bytes) => {
+                    let out_path = out_dir.join(format!("{}_nobg.png", filename));
+                    match std::fs::write(&out_path, &png_bytes) {
+                        Ok(_) => {
+                            let out_str = out_path.to_string_lossy().to_string();
+                            output_paths.push(out_str.clone());
+                            let _ = app_handle.emit(
+                                "batch-progress",
+                                BatchProgress {
+                                    index: i,
+                                    total,
+                                    filename: display_name,
+                                    status: "done".to_string(),
+                                    error: None,
+                                    output_path: Some(out_str),
+                                },
+                            );
+                        }
+                        Err(e) => {
+                            let _ = app_handle.emit(
+                                "batch-progress",
+                                BatchProgress {
+                                    index: i,
+                                    total,
+                                    filename: display_name,
+                                    status: "error".to_string(),
+                                    error: Some(format!("Save failed: {e}")),
+                                    output_path: None,
+                                },
+                            );
+                        }
+                    }
+                }
+                Err(e) => {
+                    let _ = app_handle.emit(
+                        "batch-progress",
+                        BatchProgress {
+                            index: i,
+                            total,
+                            filename: display_name,
+                            status: "error".to_string(),
+                            error: Some(e),
+                            output_path: None,
+                        },
+                    );
+                }
+            }
+        }
+
+        Ok(output_paths)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
 pub fn replace_background_color(
     base64_data: String,
     r: u8, g: u8, b: u8,
@@ -785,7 +900,7 @@ pub fn get_cloud_config() -> Result<serde_json::Value, String> {
         "enabled": config.cloud_enabled,
         "provider": config.cloud_provider.variant_key(),
         "provider_name": config.cloud_provider.name(),
-        "has_api_key": !config.cloud_api_key.is_empty(),
+        "has_api_key": config.has_cloud_api_key(),
         "providers": providers,
     }))
 }
@@ -809,7 +924,8 @@ pub fn set_cloud_provider(provider: String) -> Result<(), String> {
 #[tauri::command]
 pub fn set_cloud_api_key(api_key: String) -> Result<(), String> {
     let mut config = downloader::load_config().map_err(|e| e.to_string())?;
-    config.cloud_api_key = api_key;
+    let provider_key = config.cloud_provider.variant_key().to_string();
+    config.cloud_api_keys.insert(provider_key, api_key);
     downloader::save_config(&config).map_err(|e| e.to_string())
 }
 

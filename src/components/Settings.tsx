@@ -504,7 +504,11 @@ export default function Settings({ onClose, onModelDeleted, onToast }: Props) {
                         onClick={p.key !== cloudConfig.provider ? async () => {
                           try {
                             await setCloudProvider(p.key);
-                            setCloudConfig({ ...cloudConfig, provider: p.key, provider_name: p.name });
+                            // Reload full config to get correct has_api_key for new provider
+                            const updated = await getCloudConfig();
+                            setCloudConfig(updated);
+                            setApiKeyInput("");
+                            setApiKeySaved(false);
                             onToast(`Switched to ${p.name}`, "success");
                           } catch (err: any) {
                             onToast(err.toString(), "error");

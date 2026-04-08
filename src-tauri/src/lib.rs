@@ -52,6 +52,7 @@ pub fn run() {
             commands::set_cloud_provider,
             commands::set_cloud_api_key,
             commands::remove_background_cloud,
+            commands::remove_background_batch_cloud,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
