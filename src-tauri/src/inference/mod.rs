@@ -1,5 +1,6 @@
 pub mod apple_vision;
 pub mod cloud;
+pub mod cloud_usage;
 pub mod face_detect;
 pub mod postprocess;
 pub mod preprocess;

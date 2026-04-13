@@ -1,3 +1,4 @@
+use crate::inference::cloud_usage::CloudUsageState;
 use crate::inference::face_detect::FaceDetectState;
 use crate::inference::refine::RefineState;
 use crate::inference::session::SessionState;
@@ -469,6 +470,7 @@ pub async fn remove_background_batch(
 #[tauri::command]
 pub async fn remove_background_batch_cloud(
     app: AppHandle,
+    usage_state: State<'_, CloudUsageState>,
     image_paths: Vec<String>,
     output_dir: String,
 ) -> Result<Vec<String>, String> {
@@ -477,9 +479,12 @@ pub async fn remove_background_batch_cloud(
     }
 
     let app_handle = app.clone();
+    let usage = usage_state.inner().clone();
     let total = image_paths.len();
 
     tokio::task::spawn_blocking(move || {
+        let config = downloader::load_config().map_err(|e| e.to_string())?;
+        let provider = config.cloud_provider.clone();
         let mut output_paths = Vec::new();
         let out_dir = PathBuf::from(&output_dir);
         std::fs::create_dir_all(&out_dir)
@@ -512,6 +517,7 @@ pub async fn remove_background_batch_cloud(
                 let image_bytes = std::fs::read(&path)
                     .map_err(|e| format!("Failed to read image: {e}"))?;
                 let result_bytes = crate::inference::cloud::remove_background_cloud(&image_bytes)?;
+                usage.record(&provider);
                 // Re-encode through image crate to ensure valid PNG
                 let img = image::load_from_memory(&result_bytes)
                     .map_err(|e| format!("Failed to decode cloud result: {e}"))?;
@@ -930,8 +936,22 @@ pub fn set_cloud_api_key(api_key: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+pub fn get_cloud_usage(
+    usage_state: State<'_, CloudUsageState>,
+) -> Result<serde_json::Value, String> {
+    let summary = usage_state.summary();
+    serde_json::to_value(&summary).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn reset_cloud_usage(usage_state: State<'_, CloudUsageState>) {
+    usage_state.reset();
+}
+
+#[tauri::command]
 pub async fn remove_background_cloud(
     app: AppHandle,
+    usage_state: State<'_, CloudUsageState>,
     image_path: String,
 ) -> Result<String, String> {
     let path = PathBuf::from(&image_path);
@@ -940,14 +960,21 @@ pub async fn remove_background_cloud(
     }
 
     let app_handle = app.clone();
+    let usage = usage_state.inner().clone();
 
     tokio::task::spawn_blocking(move || {
         emit_progress(&app_handle, "Reading image...", 10.0);
         let image_bytes = std::fs::read(&path)
             .map_err(|e| format!("Failed to read image: {e}"))?;
 
+        let config = downloader::load_config().map_err(|e| e.to_string())?;
+        let provider = config.cloud_provider.clone();
+
         emit_progress(&app_handle, "Uploading to cloud API...", 25.0);
         let result_bytes = crate::inference::cloud::remove_background_cloud(&image_bytes)?;
+
+        // Record successful usage
+        usage.record(&provider);
 
         emit_progress(&app_handle, "Processing result...", 85.0);
 

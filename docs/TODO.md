@@ -87,7 +87,7 @@
 - [x] remove.bg integration (proprietary model, ~$0.10/image)
 - [x] Skip model download when cloud mode enabled
 - [x] Cloud batch processing
-- [ ] Usage tracking / cost estimation per session
+- [x] Usage tracking / cost estimation per session
 
 ## Stretch Goals
 

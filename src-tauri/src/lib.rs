@@ -3,6 +3,7 @@ mod imaging;
 mod inference;
 mod model;
 
+use inference::cloud_usage::CloudUsageState;
 use inference::face_detect::FaceDetectState;
 use inference::refine::RefineState;
 use inference::session::SessionState;
@@ -17,6 +18,7 @@ pub fn run() {
         .manage(UpscaleSessionState::new())
         .manage(FaceDetectState::new())
         .manage(RefineState::new())
+        .manage(CloudUsageState::new())
         .invoke_handler(tauri::generate_handler![
             commands::apple_vision_available,
             commands::remove_background_apple_vision,
@@ -51,6 +53,8 @@ pub fn run() {
             commands::set_cloud_enabled,
             commands::set_cloud_provider,
             commands::set_cloud_api_key,
+            commands::get_cloud_usage,
+            commands::reset_cloud_usage,
             commands::remove_background_cloud,
             commands::remove_background_batch_cloud,
         ])

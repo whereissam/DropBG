@@ -12,6 +12,8 @@ import {
   setCloudEnabled,
   setCloudProvider,
   setCloudApiKey,
+  getCloudUsage,
+  resetCloudUsage,
   openPathInFinder,
   openUrlInBrowser,
   setModelDir,
@@ -22,6 +24,7 @@ import {
   type UpscaleModelInfo,
   type RefineModelInfo,
   type CloudConfig,
+  type CloudUsage,
 } from "../tauri";
 
 interface Props {
@@ -49,6 +52,7 @@ export default function Settings({ onClose, onModelDeleted, onToast }: Props) {
   const [refineDownloading, setRefineDownloading] = useState(false);
   const [refineProgress, setRefineProgress] = useState(0);
   const [cloudConfig, setCloudConfig] = useState<CloudConfig | null>(null);
+  const [cloudUsage, setCloudUsage] = useState<CloudUsage | null>(null);
   const [apiKeyInput, setApiKeyInput] = useState("");
   const [apiKeySaved, setApiKeySaved] = useState(false);
 
@@ -59,6 +63,7 @@ export default function Settings({ onClose, onModelDeleted, onToast }: Props) {
     getRefineModelInfo().then(setRefineInfo).catch(() => {});
     getUpscaleModelInfo().then(setUpscaleInfo).catch(() => {});
     getCloudConfig().then(setCloudConfig).catch(() => {});
+    getCloudUsage().then(setCloudUsage).catch(() => {});
   }, []);
 
   async function loadInfo() {
@@ -565,6 +570,41 @@ export default function Settings({ onClose, onModelDeleted, onToast }: Props) {
                       </div>
                     </div>
                   </div>
+
+                  {/* Session usage stats */}
+                  {cloudUsage && cloudUsage.total_images > 0 && (
+                    <div className="settings-info" style={{ marginTop: 10 }}>
+                      <div className="si-row">
+                        <span className="si-label">Session usage</span>
+                        <span className="si-value">
+                          {cloudUsage.total_images} image{cloudUsage.total_images !== 1 ? "s" : ""} — est. ${cloudUsage.total_estimated_cost.toFixed(4)}
+                        </span>
+                      </div>
+                      {cloudUsage.by_provider.map((p) => (
+                        <div className="si-row" key={p.provider}>
+                          <span className="si-label" style={{ fontSize: "0.7rem", color: "var(--text-tertiary)" }}>
+                            {p.provider_name}
+                          </span>
+                          <span className="si-value" style={{ fontSize: "0.7rem", color: "var(--text-tertiary)" }}>
+                            {p.image_count} img — ${p.estimated_cost.toFixed(4)}
+                          </span>
+                        </div>
+                      ))}
+                      <div style={{ marginTop: 6 }}>
+                        <button
+                          className="sa-btn"
+                          style={{ fontSize: "0.7rem", padding: "3px 8px" }}
+                          onClick={async () => {
+                            await resetCloudUsage();
+                            setCloudUsage({ total_images: 0, total_estimated_cost: 0, by_provider: [] });
+                            onToast("Usage counter reset", "info");
+                          }}
+                        >
+                          Reset counter
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </>
               )}
             </>

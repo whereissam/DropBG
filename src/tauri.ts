@@ -241,6 +241,29 @@ export async function setCloudApiKey(apiKey: string): Promise<void> {
   return invoke<void>("set_cloud_api_key", { apiKey });
 }
 
+export interface CloudProviderUsage {
+  provider: string;
+  provider_name: string;
+  image_count: number;
+  estimated_cost: number;
+}
+
+export interface CloudUsage {
+  total_images: number;
+  total_estimated_cost: number;
+  by_provider: CloudProviderUsage[];
+}
+
+export async function getCloudUsage(): Promise<CloudUsage> {
+  const invoke = await getInvoke();
+  return invoke<CloudUsage>("get_cloud_usage");
+}
+
+export async function resetCloudUsage(): Promise<void> {
+  const invoke = await getInvoke();
+  return invoke<void>("reset_cloud_usage");
+}
+
 export async function removeBackgroundCloud(imagePath: string): Promise<string> {
   const invoke = await getInvoke();
   return invoke<string>("remove_background_cloud", { imagePath });
