@@ -50,14 +50,19 @@ open /Applications/DropBG.app
 
 ---
 
-## First Launch — Model Setup
+## First Launch
 
-On first launch, DropBG asks you to download an AI model. No model is bundled with the app to keep the download small.
+DropBG works the moment you open it — no download required.
 
-1. Choose your model (default: **BiRefNet Lite**, ~200 MB)
+- **Default: Apple Vision** is built into macOS 14+ and runs instantly on the Neural Engine. Good quality for most photos, zero setup.
+- **Optional: download a specialized AI model** if you want higher quality (complex hair, fur, fine edges, product shots). Models are 13 MB – 900 MB depending on which you pick.
+
+To add an AI model:
+
+1. Open **Settings → AI Model** and choose the model you want
 2. Click **Download** — progress is shown in real time
-3. The model is saved to `~/Downloads/DropBG/` by default (configurable in Settings)
-4. Once downloaded, the model works 100% offline
+3. Models are saved to `~/Downloads/DropBG/` by default (configurable in Settings)
+4. Once downloaded, the model works 100% offline; you can switch models without restarting
 
 ## Removing Backgrounds
 
@@ -77,19 +82,45 @@ On first launch, DropBG asks you to download an AI model. No model is bundled wi
 
 ## Available AI Models
 
-DropBG supports multiple background removal models. Switch between them in **Settings → AI Model**.
+DropBG ships with **Apple Vision** as the zero-download default. You can add specialized AI models in **Settings → AI Model** for higher quality.
 
-| Model | Size | Best For | License |
-|-------|------|----------|---------|
-| **BiRefNet Lite** | ~200 MB | Fast general use, most images | MIT |
-| **BiRefNet Full** | ~900 MB | Complex backgrounds, high detail | MIT |
-| **BEN2** | ~219 MB | Hair, fine edges, complex scenes | MIT |
-| **RMBG 2.0** | ~514 MB | Best overall quality | CC BY-NC 4.0 (manual download) |
-| **MODNet** | ~13 MB | Portraits and people (lightweight) | Apache 2.0 |
+### Curated lineup
 
-- Models with auto-download: click to switch, then download if needed
-- **RMBG 2.0** requires manual download from [HuggingFace](https://huggingface.co/briaai/RMBG-2.0/blob/main/onnx/model_fp16.onnx) (gated model — accept terms, download, rename to `rmbg2_fp16.onnx`, place in model folder)
-- You can download multiple models and switch between them without restarting
+| Model | Tier | Size | Best For | License |
+|-------|------|------|----------|---------|
+| **Apple Vision** | Default | Built-in | Zero-setup; good quality on macOS 14+ | Apple system framework |
+| **BiRefNet Lite** | Recommended | ~200 MB | Fast local background removal | MIT |
+| **BiRefNet General** | Quality | ~490 MB | Higher-quality general cutouts | MIT |
+| **BiRefNet Matting** | Best edges | Manual | Alpha mattes for hair, fur, transparency | MIT |
+| **BiRefNet HR-matting** | High-resolution | Manual | Alpha mattes at 2048×2048 — best for large product / portrait shots | MIT |
+| **BiRefNet Dynamic** | Native resolution | Manual | Arbitrary image sizes (256–2304 px) | MIT |
+| **BEN2** | Edge detail | ~219 MB | Hair, fur, difficult boundaries (experimental) | MIT |
+| **RMBG 2.0** | Product | ~514 MB | Ecommerce / product shots | **CC BY-NC 4.0** (non-commercial only) |
+| **MODNet** | Lightweight | ~13 MB | Portraits / legacy use | Apache 2.0 |
+
+### Also shipped (advanced)
+
+- **BiRefNet Full** (~900 MB) — superseded by BiRefNet General for most use cases
+- **BiRefNet Portrait** (~490 MB) — specialized portrait model (auto-selected when faces detected, if Auto routing is on)
+- **InSPyReNet** (~300 MB, manual) — strong on fuzzy edges and hair strands
+
+### Notes
+
+- **Auto-download**: most models can be downloaded directly from Settings; download progress is shown in the model picker.
+- **Manual download** is required for RMBG 2.0, BiRefNet Matting, BiRefNet HR-matting, and BiRefNet Dynamic. See each model's HuggingFace page (linked in Settings) — accept the terms, download `model_fp16.onnx`, rename per the prompt in Settings, place in your model folder.
+- **BiRefNet HR-matting** is trained at 2048×2048 and uses ~4× more memory than the 1024-input models. Close other apps before running heavy batches on machines with under 16 GB RAM.
+- You can download multiple models and switch between them without restarting.
+- **Two-stage edge refinement**: when enabled, a coarse BiRefNet mask is refined by ViTMatte Small (~28 MB) for cleaner hair and fur boundaries.
+
+### Model license callout
+
+DropBG itself is MIT-licensed. **Model weights have their own licenses, and not all of them are commercial.**
+
+- **RMBG 2.0** is released under **CC BY-NC 4.0** — non-commercial use only. Commercial use requires an agreement with [BRIA](https://bria.ai). For a commercial-safe RMBG path, the **fal.ai BRIA endpoint** is on the cloud roadmap (see below).
+- **MODNet** is Apache 2.0 — generally commercial-safe.
+- **BiRefNet family and BEN2** are MIT — generally commercial-safe; verify each upstream repo before shipping outputs.
+
+If you use DropBG for client work or ecommerce, check the license of the model you select before exporting results.
 
 ## Post-Processing Tools
 
@@ -114,20 +145,66 @@ Click **Upscale** in the toolbar to enhance resolution using Real-ESRGAN:
 - **4x** — quadruples the resolution (native model output)
 - Requires the upscale model (~64 MB) — download it in **Settings → AI Upscale**
 
+## Cloud APIs (optional)
+
+Local processing is the default. If you want to offload to a GPU — for large batches, the very highest-quality endpoints, or to avoid downloading model weights — DropBG supports a few cloud providers. **Cloud mode is off by default and your images are only sent when you explicitly enable it.**
+
+### Setup
+
+1. Open **Settings → Cloud**
+2. Pick a provider and paste your API key — keys are stored in DropBG's config file on your Mac, never transmitted anywhere except the provider you chose
+3. Toggle **Use cloud** to switch between local and cloud inference at any time
+4. Per-session usage and estimated cost are shown in Settings
+
+### Shipped today
+
+| Provider | Endpoint | Notes |
+|----------|----------|-------|
+| **Replicate** | Community BiRefNet model | Pay-per-run or compute-time pricing — check the model page |
+| **fal.ai BiRefNet** | `fal-ai/birefnet` | Fast and reliable |
+| **fal.ai BRIA RMBG 2.0** | `fal-ai/bria/background/remove` | Commercial-safe RMBG via API — avoids the local non-commercial license issue |
+| **fal.ai Ideogram Remove Background** | `fal-ai/ideogram/remove-background` | High-quality cutouts with clean edges |
+| **remove.bg** | Proprietary | Mature API, paid credits; useful as a quality benchmark |
+| **Photoroom** | `sdk.photoroom.com/v1/segment` | Strong product-photo workflow for ecommerce users |
+
+When **fal.ai** is selected, pick the endpoint in **Settings → Cloud → Endpoint**. The Endpoint sub-picker only appears when fal.ai is active.
+
+See [TODO.md](TODO.md) Phase 10 for what landed.
+
+### Pricing notes
+
+Cloud pricing changes frequently. DropBG doesn't hardcode prices in the UI — open the provider's pricing page directly. As a rough guide at the time of writing:
+
+- **Replicate** bills by compute time or per-run depending on the model
+- **fal.ai BRIA RMBG 2.0** is listed at ~$0.018 per generation (provider page, 2026-05)
+- **fal.ai Ideogram Remove Background** — check the provider page for current pricing
+- **remove.bg** uses a credit system; the first 50 API calls per month are free
+- **Photoroom** uses monthly subscription credits based on images processed — see the provider's pricing docs
+
+Always check the provider page for current pricing before running large batches.
+
 ## Settings
 
 Open Settings via the gear icon (top-right corner).
 
 ### AI Model
 
-- View active model, status, and file location
-- Switch between all available models
-- Download or delete models
+- Default: **Apple Vision** (built into macOS 14+, no download needed)
+- Switch to any downloaded AI model from the picker
+- Download / delete model weights
 - Change model storage location
+- Optional: enable **Auto routing** to let DropBG pick BiRefNet Portrait automatically when faces are detected
 
 ### AI Upscale
 
-- Download/manage the Real-ESRGAN upscale model (~64 MB)
+- Download / manage the Real-ESRGAN upscale model (~64 MB)
+
+### Cloud
+
+- Add API keys for Replicate, fal.ai, remove.bg, or Photoroom (each stored locally; never shared)
+- When fal.ai is selected, pick the endpoint sub-variant (BiRefNet / BRIA RMBG 2.0 / Ideogram)
+- Toggle cloud mode on/off
+- View per-session usage and estimated cost
 
 ### Save Location
 
@@ -157,11 +234,15 @@ Open Settings via the gear icon (top-right corner).
 
 ### "Model not downloaded"
 
-Go to Settings and download the model, or check that the model file exists in the configured model directory.
+Go to Settings and download the model, or check that the model file exists in the configured model directory. If you don't want to download anything, switch back to **Apple Vision** — it's built into macOS and always available on macOS 14+.
+
+### Apple Vision result looks worse than expected
+
+Apple Vision is a fast, general-purpose segmenter. For tricky images (fine hair, fur, motion blur, complex backgrounds), switch to **BiRefNet General**, **BiRefNet Matting**, or **BEN2** in Settings. For product photos, **RMBG 2.0** is strongest (but is non-commercial — see the license callout above).
 
 ### Processing fails on certain images
 
-Try switching to a different model in Settings. **BiRefNet Full** or **BEN2** handle complex backgrounds better than the Lite model.
+Try switching to a different model in Settings. **BiRefNet General** or **BEN2** handle complex backgrounds better than the Lite model. If a local model keeps failing, you can also temporarily switch to a cloud provider in **Settings → Cloud**.
 
 ### App won't open on macOS
 

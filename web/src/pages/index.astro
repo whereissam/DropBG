@@ -11,9 +11,10 @@ import BaseLayout from "../layouts/BaseLayout.astro";
         <span class="text-lg font-bold tracking-tight text-text sm:text-xl lg:text-2xl">DropBG</span>
       </a>
       <!-- Desktop nav -->
-      <div class="hidden items-center gap-10 md:flex">
+      <div class="hidden items-center gap-8 md:flex lg:gap-10">
         <a class="text-lg text-text-2 transition-colors hover:text-text cursor-pointer" href="#features">Features</a>
         <a class="text-lg text-text-2 transition-colors hover:text-text cursor-pointer" href="#models">Models</a>
+        <a class="text-lg text-text-2 transition-colors hover:text-text cursor-pointer" href="#cloud">Cloud</a>
         <a class="text-lg text-text-2 transition-colors hover:text-text cursor-pointer" href="#install">Install</a>
         <a class="text-lg text-text-2 transition-colors hover:text-text cursor-pointer" href="https://github.com/whereissam/DropBG" target="_blank" rel="noreferrer">GitHub</a>
         <a class="rounded-full bg-accent px-7 py-2.5 text-lg font-semibold text-white shadow-[0_0_24px_var(--color-accent-glow)] transition-all hover:bg-accent-hover cursor-pointer" href="https://github.com/whereissam/DropBG/releases" target="_blank" rel="noreferrer">Download</a>
@@ -39,7 +40,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
         </h1>
 
         <p class="mx-auto mt-4 max-w-[680px] text-[15px] leading-relaxed text-text-2 sm:mt-8 sm:text-lg md:text-xl lg:text-2xl">
-          Drop an image, get a clean cutout. Apple Vision works instantly — no download needed. Add any of 9 AI models when you need more.
+          Drop an image, get a clean cutout. Apple Vision works instantly — no download needed. Add specialized AI models when you want higher quality.
         </p>
 
         <div class="mt-7 flex flex-col items-center gap-3 sm:mt-12 sm:flex-row sm:justify-center sm:gap-5">
@@ -73,9 +74,9 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     <section class="border-y border-border">
       <div class="mx-auto grid max-w-[2000px] grid-cols-2 md:grid-cols-4">
         {[
-          ["100%", "Local"],
+          ["100%", "Local by default"],
           ["2–4s", "Per image"],
-          ["9+", "AI models"],
+          ["MIT", "Open source"],
           ["0 bytes", "Uploaded"],
         ].map(([value, label], i) => (
           <div class={[
@@ -88,6 +89,69 @@ import BaseLayout from "../layouts/BaseLayout.astro";
             <div class="mt-1 text-xs text-text-3 sm:text-sm lg:text-base">{label}</div>
           </div>
         ))}
+      </div>
+    </section>
+
+    <!-- ============ COMPARE ============ -->
+    <section id="compare" class="mx-auto max-w-[2000px] px-5 py-14 sm:px-8 sm:py-section lg:px-16">
+      <div class="mb-8 sm:mb-16">
+        <h2 class="text-[1.75rem] font-bold leading-tight tracking-tight text-text sm:text-4xl lg:text-5xl xl:text-6xl">Why DropBG vs cloud tools?</h2>
+        <p class="mt-3 text-[15px] text-text-2 sm:mt-5 sm:text-lg lg:text-xl">remove.bg-style tools upload every image, cap resolution, and meter by plan. DropBG keeps everything on your Mac by default.</p>
+      </div>
+
+      <!-- Mobile: stacked rows -->
+      <div class="space-y-2.5 sm:hidden">
+        {[
+          ["Runs offline", "✅ Yes", "❌ No"],
+          ["Images stay local", "✅ By default", "❌ Uploaded"],
+          ["Per-image cost", "✅ Free after setup", "❌ Usually paid"],
+          ["Resolution limits", "✅ No app-level limit", "⚠️ Often plan-limited"],
+          ["Batch processing", "✅ Yes", "⚠️ Depends on plan"],
+          ["Cloud option", "✅ Optional BYO key", "✅ Built-in"],
+        ].map(([feature, dropbg, cloud]) => (
+          <div class="rounded-lg border border-border bg-bg-elevated p-4">
+            <div class="text-[15px] font-semibold text-text">{feature}</div>
+            <div class="mt-2 grid grid-cols-2 gap-3 text-xs">
+              <div>
+                <div class="text-text-3">DropBG</div>
+                <div class="mt-0.5 text-text-2">{dropbg}</div>
+              </div>
+              <div>
+                <div class="text-text-3">Cloud tools</div>
+                <div class="mt-0.5 text-text-2">{cloud}</div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <!-- Desktop: table -->
+      <div class="hidden overflow-hidden rounded-xl border border-border sm:block">
+        <table class="w-full text-left">
+          <thead>
+            <tr class="border-b border-border bg-bg-elevated/50 text-sm font-medium tracking-wider text-text-3 uppercase lg:text-base">
+              <th class="px-6 py-4 sm:px-8 sm:py-5">Feature</th>
+              <th class="px-6 py-4 sm:px-8 sm:py-5">DropBG</th>
+              <th class="px-6 py-4 sm:px-8 sm:py-5">remove.bg / cloud tools</th>
+            </tr>
+          </thead>
+          <tbody class="text-base lg:text-lg">
+            {[
+              ["Runs offline", "✅ Yes", "❌ No"],
+              ["Images stay local", "✅ By default", "❌ Uploaded to server"],
+              ["Per-image cost", "✅ Free after setup", "❌ Usually paid"],
+              ["Resolution limits", "✅ No app-level limit", "⚠️ Often limited by plan"],
+              ["Batch processing", "✅ Yes", "⚠️ Depends on plan"],
+              ["Cloud option", "✅ Optional BYO key", "✅ Built-in"],
+            ].map(([feature, dropbg, cloud], i, arr) => (
+              <tr class={`${i < arr.length - 1 ? "border-b border-border" : ""} transition-colors hover:bg-bg-elevated/50`}>
+                <td class="px-6 py-4 font-medium text-text sm:px-8 sm:py-5">{feature}</td>
+                <td class="px-6 py-4 text-text-2 sm:px-8 sm:py-5">{dropbg}</td>
+                <td class="px-6 py-4 text-text-3 sm:px-8 sm:py-5">{cloud}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </section>
 
@@ -146,26 +210,28 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       <!-- Mobile: cards -->
       <div class="space-y-2.5 sm:hidden">
         {[
-          ["Apple Vision", "Built-in", "Fast", "Good", "Default"],
-          ["BiRefNet Lite", "200 MB", "Fast", "Good"],
-          ["BiRefNet Full", "900 MB", "Slower", "Best"],
-          ["BEN2", "219 MB", "Fast", "Great"],
-          ["BiRefNet Portrait", "490 MB", "Medium", "Best for faces"],
-          ["RMBG 2.0", "514 MB", "Medium", "Excellent"],
-          ["MODNet", "13 MB", "Fastest", "Portraits"],
-        ].map(([name, size, speed, quality, tag]) => (
+          ["Apple Vision", "Built-in", "Fast", "Zero-setup, good quality", "Apple", "Default"],
+          ["BiRefNet Lite", "200 MB", "Fast", "Recommended local download", "MIT"],
+          ["BiRefNet General", "490 MB", "Medium", "Higher-quality general cutouts", "MIT"],
+          ["BiRefNet Matting", "Manual", "Medium", "Alpha mattes for hair & fur", "MIT"],
+          ["BiRefNet HR-matting", "Manual", "Slower", "Alpha mattes at 2048×2048 — large product / portrait shots", "MIT"],
+          ["BEN2", "219 MB", "Fast", "Hair, fur, difficult edges (experimental)", "MIT"],
+          ["RMBG 2.0", "514 MB", "Medium", "Ecommerce / product shots", "Non-commercial *"],
+          ["MODNet", "13 MB", "Fastest", "Portraits / legacy", "Apache 2.0"],
+        ].map(([name, size, speed, quality, license, tag]) => (
           <div class="rounded-lg border border-border bg-bg-elevated p-4">
-            <div class="flex items-center justify-between">
+            <div class="flex items-center justify-between gap-2">
               <span class="text-[15px] font-semibold text-text">{name}</span>
               {tag && <span class="rounded bg-accent/15 px-2 py-0.5 text-[11px] font-semibold text-accent">{tag}</span>}
             </div>
-            <div class="mt-1.5 flex gap-3 text-xs text-text-3">
+            <div class="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-xs text-text-3">
               <span>{size}</span>
               <span>&middot;</span>
               <span>{speed}</span>
               <span>&middot;</span>
               <span class="text-text-2">{quality}</span>
             </div>
+            <div class="mt-2 text-[11px] text-text-3">License: <span class="text-text-2">{license}</span></div>
           </div>
         ))}
       </div>
@@ -179,18 +245,19 @@ import BaseLayout from "../layouts/BaseLayout.astro";
               <th class="px-6 py-4 sm:px-8 sm:py-5">Size</th>
               <th class="px-6 py-4 sm:px-8 sm:py-5">Speed</th>
               <th class="px-6 py-4 sm:px-8 sm:py-5">Quality</th>
+              <th class="px-6 py-4 sm:px-8 sm:py-5">License</th>
             </tr>
           </thead>
           <tbody class="text-base lg:text-lg">
             {[
-              ["Apple Vision", "Built-in", "Fast", "Good", "Default"],
-              ["BiRefNet Lite", "200 MB", "Fast", "Good"],
-              ["BiRefNet Full", "900 MB", "Slower", "Best"],
-              ["BEN2", "219 MB", "Fast", "Great"],
-              ["BiRefNet Portrait", "490 MB", "Medium", "Best for faces"],
-              ["RMBG 2.0", "514 MB", "Medium", "Excellent"],
-              ["MODNet", "13 MB", "Fastest", "Good for portraits"],
-            ].map(([name, size, speed, quality, tag], i, arr) => (
+              ["Apple Vision", "Built-in", "Fast", "Zero-setup, good quality", "Apple", "Default"],
+              ["BiRefNet Lite", "200 MB", "Fast", "Recommended local download", "MIT"],
+              ["BiRefNet General", "490 MB", "Medium", "Higher-quality general cutouts", "MIT"],
+              ["BiRefNet Matting", "Manual", "Medium", "Alpha mattes for hair & fur", "MIT"],
+              ["BEN2", "219 MB", "Fast", "Hair, fur, difficult edges (experimental)", "MIT"],
+              ["RMBG 2.0", "514 MB", "Medium", "Ecommerce / product shots", "Non-commercial *"],
+              ["MODNet", "13 MB", "Fastest", "Portraits / legacy", "Apache 2.0"],
+            ].map(([name, size, speed, quality, license, tag], i, arr) => (
               <tr class={`${i < arr.length - 1 ? "border-b border-border" : ""} transition-colors hover:bg-bg-elevated/50`}>
                 <td class="px-6 py-4 font-medium text-text sm:px-8 sm:py-5">
                   {name}
@@ -199,14 +266,48 @@ import BaseLayout from "../layouts/BaseLayout.astro";
                 <td class="px-6 py-4 text-text-3 sm:px-8 sm:py-5">{size}</td>
                 <td class="px-6 py-4 text-text-3 sm:px-8 sm:py-5">{speed}</td>
                 <td class="px-6 py-4 text-text-2 sm:px-8 sm:py-5">{quality}</td>
+                <td class="px-6 py-4 text-text-3 sm:px-8 sm:py-5">{license}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-      <p class="mt-4 text-xs text-text-3 sm:mt-6 sm:text-base">
-        Plus Real-ESRGAN (upscaling), ViTMatte (edge refinement), and YuNet (face detection).
+      <p class="mt-4 text-xs leading-relaxed text-text-3 sm:mt-6 sm:text-sm lg:text-base">
+        Also shipped in Settings: BiRefNet Full, BiRefNet Portrait, BiRefNet Dynamic, InSPyReNet. Plus Real-ESRGAN (upscaling), ViTMatte (edge refinement), and YuNet (face detection).<br/>
+        <span class="text-text-3">* RMBG 2.0 weights are released under CC BY-NC 4.0 — commercial use requires an agreement with BRIA. For a commercial-safe RMBG path, fal.ai's BRIA endpoint is on the cloud roadmap below. DropBG itself is MIT-licensed.</span>
       </p>
+    </section>
+
+    <!-- ============ CLOUD (OPTIONAL) ============ -->
+    <section id="cloud" class="border-y border-border">
+      <div class="mx-auto max-w-[2000px] px-5 py-14 sm:px-8 sm:py-section lg:px-16">
+        <div class="mb-8 sm:mb-12">
+          <p class="mb-2 text-xs font-semibold tracking-wider text-accent uppercase sm:mb-3 sm:text-sm lg:text-base">Optional &middot; bring your own key</p>
+          <h2 class="text-[1.75rem] font-bold leading-tight tracking-tight text-text sm:text-4xl lg:text-5xl xl:text-6xl">Cloud APIs, if you want them</h2>
+          <p class="mt-3 max-w-[680px] text-[15px] text-text-2 sm:mt-5 sm:text-lg lg:text-xl">Local is the default. If you'd rather offload to a GPU, plug in your own provider key — DropBG only sends images when you explicitly enable cloud mode.</p>
+        </div>
+
+        <div class="grid gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
+          {[
+            ["Replicate", "Variable", "Community BiRefNet model on cloud GPUs. Pay-per-run or compute-time — see the model page."],
+            ["fal.ai BiRefNet", "Variable", "Fast and reliable BiRefNet endpoint."],
+            ["fal.ai BRIA RMBG 2.0", "Variable", "Commercial-safe RMBG via API — avoids the local non-commercial license."],
+            ["fal.ai Ideogram", "Variable", "High-quality background-removal endpoint with clean edges."],
+            ["remove.bg", "Paid credits", "Proprietary, mature API. Polished results, useful as a quality benchmark."],
+            ["Photoroom", "Paid credits", "Strong product-photo workflow for ecommerce users."],
+          ].map(([name, cost, desc]) => (
+            <div class="rounded-xl border border-border bg-bg-elevated p-5 sm:p-6 lg:p-8">
+              <div class="flex items-baseline justify-between gap-3">
+                <h3 class="text-base font-semibold text-text sm:text-lg lg:text-xl">{name}</h3>
+                <span class="font-mono text-xs text-text-3 sm:text-sm">{cost}</span>
+              </div>
+              <p class="mt-2 text-sm leading-relaxed text-text-2 sm:mt-3 sm:text-base">{desc}</p>
+            </div>
+          ))}
+        </div>
+
+        <p class="mt-5 text-xs text-text-3 sm:mt-7 sm:text-sm lg:text-base">Pick the fal.ai endpoint in Settings → Cloud → Endpoint. Keys are stored locally and never sent to us. Cloud mode is off by default.</p>
+      </div>
     </section>
 
     <!-- ============ INSTALL ============ -->
@@ -221,10 +322,10 @@ import BaseLayout from "../layouts/BaseLayout.astro";
             <h3 class="text-lg font-bold text-text sm:text-2xl lg:text-3xl">Download DMG</h3>
             <p class="mt-1.5 text-sm text-text-2 sm:mt-3 sm:text-base lg:text-lg">Grab the latest release from GitHub.</p>
 
-            <a class="mt-4 flex items-center gap-3 rounded-lg border border-border bg-bg-elevated px-4 py-3.5 transition-all hover:border-border-hover hover:bg-surface sm:mt-8 sm:gap-4 sm:px-6 sm:py-5 sm:text-lg cursor-pointer" href="https://github.com/whereissam/DropBG/releases" target="_blank" rel="noreferrer">
+            <a class="mt-4 flex items-center gap-3 rounded-lg border border-border bg-bg-elevated px-4 py-3.5 transition-all hover:border-border-hover hover:bg-surface sm:mt-8 sm:gap-4 sm:px-6 sm:py-5 sm:text-lg cursor-pointer" href="https://github.com/whereissam/DropBG/releases/latest" target="_blank" rel="noreferrer">
               <svg class="shrink-0" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent)" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-              <span class="text-sm font-medium text-text sm:text-base">DropBG_1.0.0_aarch64.dmg</span>
-              <span class="ml-auto shrink-0 font-mono text-xs text-text-3">16 MB</span>
+              <span class="text-sm font-medium text-text sm:text-base">Latest release on GitHub</span>
+              <span class="ml-auto shrink-0 font-mono text-xs text-text-3">macOS 14+ · arm64</span>
             </a>
 
             <div class="mt-3 rounded-lg border border-amber-500/15 bg-amber-500/5 px-4 py-3 sm:mt-6 sm:px-6 sm:py-4">
@@ -248,6 +349,30 @@ import BaseLayout from "../layouts/BaseLayout.astro";
             </div>
           </div>
         </div>
+      </div>
+    </section>
+
+    <!-- ============ LIMITATIONS ============ -->
+    <section class="mx-auto max-w-[2000px] px-5 py-14 sm:px-8 sm:py-section lg:px-16">
+      <div class="mb-8 sm:mb-12">
+        <p class="mb-2 text-xs font-semibold tracking-wider text-text-3 uppercase sm:mb-3 sm:text-sm lg:text-base">Honest about the trade-offs</p>
+        <h2 class="text-[1.75rem] font-bold leading-tight tracking-tight text-text sm:text-4xl lg:text-5xl xl:text-6xl">Things to know first</h2>
+      </div>
+
+      <div class="grid gap-3 sm:gap-4 md:grid-cols-2 lg:grid-cols-3">
+        {[
+          ["macOS only", "Apple Silicon for best results. Windows and Linux are on the roadmap, not shipped."],
+          ["Unsigned for now", "First launch requires an Open Anyway click in System Settings. Signing/notarization is in progress."],
+          ["Model download on demand", "Apple Vision works with zero download. Higher-quality models are 200 MB – 900 MB each."],
+          ["RAM scales with image", "Very large images (8000×6000+) during 4× upscaling can use significant memory."],
+          ["Model licenses vary", "DropBG is MIT. Model weights have their own licenses — RMBG 2.0 is non-commercial."],
+          ["Cloud is opt-in", "Local stays local. Cloud mode only sends images when you explicitly enable it with your own API key."],
+        ].map(([title, desc]) => (
+          <div class="rounded-xl border border-border bg-bg-elevated/50 p-5 sm:p-6 lg:p-8">
+            <h3 class="text-base font-semibold text-text sm:text-lg lg:text-xl">{title}</h3>
+            <p class="mt-2 text-sm leading-relaxed text-text-2 sm:mt-3 sm:text-base">{desc}</p>
+          </div>
+        ))}
       </div>
     </section>
 
