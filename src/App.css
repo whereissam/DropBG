@@ -1031,6 +1031,24 @@
   background: rgba(255, 69, 58, 0.12);
   color: var(--danger);
 }
+.model-option-badge.license-ok {
+  background: rgba(140, 140, 160, 0.12);
+  color: var(--text-tertiary);
+  font-variant: small-caps;
+  letter-spacing: 0.02em;
+}
+.model-option-badge.license-warn {
+  background: rgba(255, 159, 10, 0.16);
+  color: #ffb340;
+  font-variant: small-caps;
+  letter-spacing: 0.02em;
+}
+.model-option-badge.license-neutral {
+  background: rgba(140, 140, 160, 0.10);
+  color: var(--text-tertiary);
+  font-variant: small-caps;
+  letter-spacing: 0.02em;
+}
 .model-option-desc {
   font-size: 0.75rem;
   color: var(--text-tertiary);

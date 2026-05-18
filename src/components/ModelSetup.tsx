@@ -101,24 +101,24 @@ export default function ModelSetup({ downloading, progress, error, onDownload, o
             </div>
             <span className="progress-text">Downloading... {progress.toFixed(1)}%</span>
           </div>
+        ) : hasVision && onSkipWithVision ? (
+          <>
+            <button className="setup-btn" onClick={onSkipWithVision}>
+              Get Started with Apple Vision
+            </button>
+            <button className="setup-skip-vision" onClick={onDownload}>
+              {error ? "Retry download" : "Or download a specialized model for higher quality"}
+            </button>
+          </>
         ) : (
           <button className="setup-btn" onClick={onDownload}>
             {error ? "Retry Download" : "Download & Get Started"}
           </button>
         )}
 
-        {hasVision && onSkipWithVision && !downloading && (
-          <button
-            className="setup-skip-vision"
-            onClick={onSkipWithVision}
-          >
-            Skip — Use Apple Vision instead (no download)
-          </button>
-        )}
-
         <p className="setup-footer">
           {hasVision
-            ? "Download a model for best quality, or use Apple Vision for instant results."
+            ? "Apple Vision works instantly on macOS 14+. Download a specialized model any time from Settings for higher quality."
             : "One-time setup. After this, everything runs 100% offline."}
         </p>
       </div>

@@ -12,6 +12,7 @@ import {
   setCloudEnabled,
   setCloudProvider,
   setCloudApiKey,
+  setFalAiEndpoint,
   getCloudUsage,
   resetCloudUsage,
   openPathInFinder,
@@ -38,6 +39,25 @@ function formatBytes(bytes: number): string {
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
+
+type LicenseTag = { label: string; tone: "ok" | "warn" | "neutral" };
+
+function licenseForModel(name: string): LicenseTag | null {
+  const n = name.toLowerCase();
+  if (n.includes("rmbg")) return { label: "Non-commercial", tone: "warn" };
+  if (n.includes("modnet")) return { label: "Apache 2.0", tone: "ok" };
+  if (n.includes("birefnet") || n.includes("ben2")) return { label: "MIT", tone: "ok" };
+  if (n.includes("inspyrenet")) return { label: "MIT", tone: "ok" };
+  if (n.includes("apple vision")) return { label: "Apple", tone: "neutral" };
+  return null;
+}
+
+const CLOUD_PRICING_URLS: Record<string, string> = {
+  Replicate: "https://replicate.com/pricing",
+  FalAI: "https://fal.ai/models/fal-ai/birefnet",
+  RemoveBg: "https://www.remove.bg/pricing",
+  Photoroom: "https://docs.photoroom.com/getting-started/pricing",
+};
 
 export default function Settings({ onClose, onModelDeleted, onToast }: Props) {
   const [info, setInfo] = useState<ModelInfo | null>(null);
@@ -248,35 +268,59 @@ export default function Settings({ onClose, onModelDeleted, onToast }: Props) {
 
               {/* Model variant switcher */}
               <div className="model-switcher">
-                <div className="model-option active">
-                  <div className="model-option-header">
-                    <span className="model-option-dot active" />
-                    <span className="model-option-name">{info.name}</span>
-                  </div>
-                  <span className="model-option-desc">{info.description}</span>
-                </div>
-                {info.alternatives.map((alt) => (
-                  <div
-                    key={alt.variant}
-                    className={`model-option ${switching ? "switching" : "clickable"}`}
-                    onClick={!switching ? () => handleSwitchVariant(alt.variant) : undefined}
-                  >
-                    <div className="model-option-header">
-                      <span className="model-option-dot" />
-                      <span className="model-option-name">{alt.name}</span>
-                      {alt.exists && <span className="model-option-badge">Downloaded</span>}
-                      {!alt.exists && alt.manual_download && (
-                        <span className="model-option-badge needs-manual">{alt.approx_size}</span>
-                      )}
-                      {!alt.exists && !alt.manual_download && (
-                        <span className="model-option-badge needs-dl">{alt.approx_size}</span>
-                      )}
+                {(() => {
+                  const lic = licenseForModel(info.name);
+                  return (
+                    <div className="model-option active">
+                      <div className="model-option-header">
+                        <span className="model-option-dot active" />
+                        <span className="model-option-name">{info.name}</span>
+                        {lic && (
+                          <span
+                            className={`model-option-badge license-${lic.tone}`}
+                            title={lic.tone === "warn" ? "Non-commercial only — see USAGE docs" : `License: ${lic.label}`}
+                          >
+                            {lic.label}
+                          </span>
+                        )}
+                      </div>
+                      <span className="model-option-desc">{info.description}</span>
                     </div>
-                    <span className="model-option-desc">
-                      {switching ? "Switching..." : alt.description}
-                    </span>
-                  </div>
-                ))}
+                  );
+                })()}
+                {info.alternatives.map((alt) => {
+                  const lic = licenseForModel(alt.name);
+                  return (
+                    <div
+                      key={alt.variant}
+                      className={`model-option ${switching ? "switching" : "clickable"}`}
+                      onClick={!switching ? () => handleSwitchVariant(alt.variant) : undefined}
+                    >
+                      <div className="model-option-header">
+                        <span className="model-option-dot" />
+                        <span className="model-option-name">{alt.name}</span>
+                        {alt.exists && <span className="model-option-badge">Downloaded</span>}
+                        {!alt.exists && alt.manual_download && (
+                          <span className="model-option-badge needs-manual">{alt.approx_size}</span>
+                        )}
+                        {!alt.exists && !alt.manual_download && (
+                          <span className="model-option-badge needs-dl">{alt.approx_size}</span>
+                        )}
+                        {lic && (
+                          <span
+                            className={`model-option-badge license-${lic.tone}`}
+                            title={lic.tone === "warn" ? "Non-commercial only — see USAGE docs" : `License: ${lic.label}`}
+                          >
+                            {lic.label}
+                          </span>
+                        )}
+                      </div>
+                      <span className="model-option-desc">
+                        {switching ? "Switching..." : alt.description}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
 
               {/* Auto-routing toggle */}
@@ -312,12 +356,25 @@ export default function Settings({ onClose, onModelDeleted, onToast }: Props) {
 
           {info && !info.exists && info.manual_download && info.manual_download_url && (
             <div className="manual-download-hint">
-              {(info.variant === "Matting" || info.variant === "Dynamic") ? (
+              {(info.variant === "Matting" || info.variant === "Dynamic" || info.variant === "HRMatting") ? (
                 <>
                   <p>This model requires ONNX export (no pre-built ONNX available):</p>
                   <ol>
                     <li>Run <code>pip install torch transformers onnx onnxconverter-common</code></li>
-                    <li>Run <code>python scripts/export_{info.variant === "Matting" ? "matting" : "dynamic"}_onnx.py</code></li>
+                    <li>
+                      Run <code>python scripts/export_{
+                        info.variant === "Matting"
+                          ? "matting"
+                          : info.variant === "Dynamic"
+                          ? "dynamic"
+                          : "hr_matting"
+                      }_onnx.py</code>
+                    </li>
+                    {info.variant === "HRMatting" && (
+                      <li style={{ color: "var(--text-tertiary)", fontSize: "0.75rem" }}>
+                        Note: HR-matting is trained at 2048×2048 and uses ~4× more memory than the 1024 models.
+                      </li>
+                    )}
                     <li>
                       Copy <code>{info.expected_filename}</code> to{" "}
                       <span className="clickable-link" onClick={handleOpenModelFolder}>
@@ -469,7 +526,7 @@ export default function Settings({ onClose, onModelDeleted, onToast }: Props) {
         <div className="settings-section">
           <h3>Cloud API</h3>
           <p className="settings-hint" style={{ marginBottom: 8 }}>
-            Use cloud GPU services for background removal. No local model download needed. Bring your own API key.
+            Optional — bring your own API key to offload to a cloud GPU. <strong>Your key stays on this Mac</strong> and is only sent to the provider you choose. Cloud mode is off by default; local processing keeps everything offline.
           </p>
 
           {cloudConfig && (
@@ -529,6 +586,44 @@ export default function Settings({ onClose, onModelDeleted, onToast }: Props) {
                     ))}
                   </div>
 
+                  {/* fal.ai endpoint selector (only when fal.ai is the active provider) */}
+                  {cloudConfig.provider === "FalAI" && cloudConfig.fal_ai_endpoints?.length > 0 && (
+                    <div style={{ marginTop: 8 }}>
+                      <p style={{ fontSize: "0.7rem", color: "var(--text-tertiary)", marginBottom: 4 }}>
+                        Endpoint
+                      </p>
+                      <div className="model-switcher">
+                        {cloudConfig.fal_ai_endpoints.map((ep) => (
+                          <div
+                            key={ep.key}
+                            className={`model-option ${ep.key === cloudConfig.fal_ai_endpoint ? "active" : "clickable"}`}
+                            onClick={ep.key !== cloudConfig.fal_ai_endpoint ? async () => {
+                              try {
+                                await setFalAiEndpoint(ep.key);
+                                const updated = await getCloudConfig();
+                                setCloudConfig(updated);
+                                onToast(`fal.ai endpoint: ${ep.name}`, "success");
+                              } catch (err: any) {
+                                onToast(err.toString(), "error");
+                              }
+                            } : undefined}
+                          >
+                            <div className="model-option-header">
+                              <span className={`model-option-dot ${ep.key === cloudConfig.fal_ai_endpoint ? "active" : ""}`} />
+                              <span className="model-option-name">{ep.name}</span>
+                              {ep.key === "BriaRmbg" && (
+                                <span className="model-option-badge license-ok" title="Commercial-safe RMBG 2.0 via API">
+                                  Commercial-safe
+                                </span>
+                              )}
+                            </div>
+                            <span className="model-option-desc">{ep.description}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   {/* API key input */}
                   <div style={{ marginTop: 8 }}>
                     <div className="si-row" style={{ flexDirection: "column", alignItems: "stretch", gap: 6 }}>
@@ -568,6 +663,17 @@ export default function Settings({ onClose, onModelDeleted, onToast }: Props) {
                           {apiKeySaved ? "Saved" : "Save"}
                         </button>
                       </div>
+                      {CLOUD_PRICING_URLS[cloudConfig.provider] && (
+                        <p style={{ fontSize: "0.7rem", color: "var(--text-tertiary)", marginTop: 4 }}>
+                          Don't have a key?{" "}
+                          <span
+                            className="clickable-link"
+                            onClick={() => openUrlInBrowser(CLOUD_PRICING_URLS[cloudConfig.provider]).catch(() => {})}
+                          >
+                            View {cloudConfig.provider_name} pricing <ExternalLinkIcon />
+                          </span>
+                        </p>
+                      )}
                     </div>
                   </div>
 

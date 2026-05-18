@@ -213,12 +213,21 @@ export interface CloudProviderInfo {
   description: string;
 }
 
+export interface FalAIEndpointInfo {
+  key: string;
+  name: string;
+  description: string;
+}
+
 export interface CloudConfig {
   enabled: boolean;
   provider: string;
   provider_name: string;
   has_api_key: boolean;
   providers: CloudProviderInfo[];
+  fal_ai_endpoint: string;
+  fal_ai_endpoint_name: string;
+  fal_ai_endpoints: FalAIEndpointInfo[];
 }
 
 export async function getCloudConfig(): Promise<CloudConfig> {
@@ -239,6 +248,11 @@ export async function setCloudProvider(provider: string): Promise<void> {
 export async function setCloudApiKey(apiKey: string): Promise<void> {
   const invoke = await getInvoke();
   return invoke<void>("set_cloud_api_key", { apiKey });
+}
+
+export async function setFalAiEndpoint(endpoint: string): Promise<void> {
+  const invoke = await getInvoke();
+  return invoke<void>("set_fal_ai_endpoint", { endpoint });
 }
 
 export interface CloudProviderUsage {

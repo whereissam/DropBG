@@ -31,11 +31,11 @@ const steps = [
         </div>
         <div className="onboard-feature">
           <span className="onboard-feature-icon">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="20 6 9 17 4 12"/></svg>
           </span>
           <div>
-            <strong>One-Time Setup</strong>
-            <p>Download an AI model once, then everything runs offline forever.</p>
+            <strong>Works Out of the Box</strong>
+            <p>Apple Vision is built into macOS — no download needed. Add specialized AI models any time for higher quality.</p>
           </div>
         </div>
       </div>
@@ -60,9 +60,9 @@ const steps = [
             <span className="onboard-perm-icon">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
             </span>
-            <strong>Network (first launch only)</strong>
+            <strong>Network (only if you add a model)</strong>
           </div>
-          <p>To download the AI model from HuggingFace. After that, the app works fully offline.</p>
+          <p>The app works fully offline with Apple Vision. Network is only needed when you choose to download a specialized AI model from HuggingFace.</p>
         </div>
         <div className="onboard-hint">
           When macOS shows a permission dialog, click <strong>Allow</strong> to continue.
