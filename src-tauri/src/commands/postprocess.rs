@@ -1,0 +1,222 @@
+use super::ProcessProgress;
+use crate::inference::refine::RefineState;
+use crate::inference::upscale::UpscaleSessionState;
+use crate::model::downloader;
+use base64::Engine;
+use tauri::{AppHandle, Emitter, State};
+
+// ===== Upscale commands =====
+
+#[tauri::command]
+pub fn get_upscale_model_info() -> Result<downloader::UpscaleModelInfo, String> {
+    downloader::upscale_model_info().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn download_upscale_model(app: AppHandle) -> Result<(), String> {
+    if downloader::upscale_model_exists() {
+        return Ok(());
+    }
+
+    let app_clone = app.clone();
+    tokio::task::spawn_blocking(move || {
+        downloader::download_upscale_model(move |progress| {
+            let _ = app_clone.emit("upscale-download-progress", progress);
+        })
+    })
+    .await
+    .map_err(|e| e.to_string())?
+    .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn upscale_image(
+    app: AppHandle,
+    state: State<'_, UpscaleSessionState>,
+    base64_data: String,
+    scale: Option<u32>, // 2 or 4, default 4
+) -> Result<String, String> {
+    let _ = app.emit("process-progress", ProcessProgress {
+        step: "Loading upscale model...".to_string(),
+        percent: 5.0,
+    });
+    state.ensure_loaded()?;
+
+    let upscale_state = state.inner().clone();
+    let app_handle = app.clone();
+    let target_scale = scale.unwrap_or(4);
+
+    tokio::task::spawn_blocking(move || {
+        let _ = app_handle.emit("process-progress", ProcessProgress {
+            step: "Decoding image...".to_string(),
+            percent: 10.0,
+        });
+
+        let bytes = base64::engine::general_purpose::STANDARD
+            .decode(&base64_data)
+            .map_err(|e| format!("Invalid base64: {e}"))?;
+        let img = image::load_from_memory(&bytes)
+            .map_err(|e| format!("Failed to decode image: {e}"))?;
+
+        let _ = app_handle.emit("process-progress", ProcessProgress {
+            step: "Upscaling (AI super-resolution)...".to_string(),
+            percent: 20.0,
+        });
+
+        let upscaled = crate::inference::upscale::upscale_image(&upscale_state, &img)?;
+
+        // If 2x requested, downscale from 4x to 2x
+        let final_img = if target_scale == 2 {
+            let _ = app_handle.emit("process-progress", ProcessProgress {
+                step: "Resizing to 2x...".to_string(),
+                percent: 85.0,
+            });
+            let (w, h) = (img.width() * 2, img.height() * 2);
+            let resized = image::imageops::resize(
+                &upscaled.to_rgba8(),
+                w, h,
+                image::imageops::FilterType::Lanczos3,
+            );
+            image::DynamicImage::ImageRgba8(resized)
+        } else {
+            upscaled
+        };
+
+        let _ = app_handle.emit("process-progress", ProcessProgress {
+            step: "Encoding PNG...".to_string(),
+            percent: 92.0,
+        });
+
+        let mut buf = Vec::new();
+        final_img
+            .write_to(
+                &mut std::io::Cursor::new(&mut buf),
+                image::ImageFormat::Png,
+            )
+            .map_err(|e| format!("Failed to encode PNG: {e}"))?;
+
+        let _ = app_handle.emit("process-progress", ProcessProgress {
+            step: "Done!".to_string(),
+            percent: 100.0,
+        });
+
+        Ok(base64::engine::general_purpose::STANDARD.encode(&buf))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+// ===== Refine (ViTMatte) commands =====
+
+#[tauri::command]
+pub fn get_refine_model_info() -> Result<serde_json::Value, String> {
+    let exists = crate::inference::refine::refine_model_exists();
+    let path = crate::inference::refine::refine_model_path().map_err(|e| e.to_string())?;
+    let size_bytes = if exists {
+        std::fs::metadata(&path).map(|m| m.len()).unwrap_or(0)
+    } else {
+        0
+    };
+    Ok(serde_json::json!({
+        "name": "ViTMatte Small (quantized)",
+        "exists": exists,
+        "size_bytes": size_bytes,
+        "approx_size": "~28 MB",
+    }))
+}
+
+#[tauri::command]
+pub async fn download_refine_model(app: AppHandle) -> Result<(), String> {
+    if crate::inference::refine::refine_model_exists() {
+        return Ok(());
+    }
+    let app_clone = app.clone();
+    tokio::task::spawn_blocking(move || {
+        crate::inference::refine::download_refine_model(move |progress| {
+            let _ = app_clone.emit("refine-download-progress", progress);
+        })
+    })
+    .await
+    .map_err(|e| e.to_string())?
+    .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn refine_result(
+    app: AppHandle,
+    refine_state: State<'_, RefineState>,
+    base64_data: String,
+    original_path: String,
+) -> Result<String, String> {
+    let _ = app.emit(
+        "process-progress",
+        ProcessProgress {
+            step: "Loading refinement model...".to_string(),
+            percent: 5.0,
+        },
+    );
+    refine_state.ensure_loaded()?;
+
+    let state = refine_state.inner().clone();
+    let app_handle = app.clone();
+
+    tokio::task::spawn_blocking(move || {
+        let _ = app_handle.emit(
+            "process-progress",
+            ProcessProgress {
+                step: "Decoding images...".to_string(),
+                percent: 10.0,
+            },
+        );
+
+        // Decode the coarse result
+        let coarse_bytes = base64::engine::general_purpose::STANDARD
+            .decode(&base64_data)
+            .map_err(|e| format!("Invalid base64: {e}"))?;
+        let coarse_img = image::load_from_memory(&coarse_bytes)
+            .map_err(|e| format!("Failed to decode coarse image: {e}"))?;
+        let coarse_rgba = coarse_img.to_rgba8();
+
+        // Load original image
+        let original = image::open(&original_path)
+            .map_err(|e| format!("Failed to open original: {e}"))?;
+
+        let _ = app_handle.emit(
+            "process-progress",
+            ProcessProgress {
+                step: "Refining alpha edges (ViTMatte)...".to_string(),
+                percent: 30.0,
+            },
+        );
+
+        let refined = crate::inference::refine::refine_mask(&state, &original, &coarse_rgba)?;
+
+        let _ = app_handle.emit(
+            "process-progress",
+            ProcessProgress {
+                step: "Encoding PNG...".to_string(),
+                percent: 90.0,
+            },
+        );
+
+        let mut buf = Vec::new();
+        refined
+            .write_to(
+                &mut std::io::Cursor::new(&mut buf),
+                image::ImageFormat::Png,
+            )
+            .map_err(|e| format!("Failed to encode PNG: {e}"))?;
+
+        let _ = app_handle.emit(
+            "process-progress",
+            ProcessProgress {
+                step: "Done!".to_string(),
+                percent: 100.0,
+            },
+        );
+
+        Ok(base64::engine::general_purpose::STANDARD.encode(&buf))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}

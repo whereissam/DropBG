@@ -190,7 +190,7 @@ Implementation work to back the curated docs lineup. Each item adds a download U
 
 ### 9.4 — Code quality / tech debt
 
-- [ ] **Deferred (own session):** `src-tauri/src/commands.rs` (1020 lines) — split into `commands/` directory with `mod.rs` + sub-modules (cloud / model / inference / editing / system). High-blast-radius mechanical refactor; needs `cargo check` after each move.
+- [x] `src-tauri/src/commands.rs` (1020 lines) — split into a 50-line parent module + 6 focused submodules under `commands/` (system, model, inference, cloud, editing, postprocess). Shared `ProcessProgress` / `BatchProgress` / `emit_progress` live in the parent. `lib.rs` registrations unchanged via `pub use commands::<sub>::*`. `cargo check` ✅ / `cargo test --lib` 10/10 ✅.
 - [ ] **Deferred (own session):** Typed error surface for `tauri.ts` invoke wrappers — replace `Result<T, String>` with a discriminated union (`DropbgError` enum on Rust side, mirrored TS type). Touches every command and every frontend invoke site.
 - [x] ~~Remove dead/legacy paths flagged by MODNet "legacy" status~~ — No dead code found. MODNet is fully wired; "legacy" is intentional user-facing copy. Also: deferred Settings.tsx 689-line split belongs here too as its own refactor session.
 - [x] ~~Audit `unwrap()` / `expect()` in Rust modules~~ — Audited: only 1 `.expect()` in the entire backend (`lib.rs:62`, Tauri `app.run()` boilerplate where panic is correct). Codebase is already clean.
