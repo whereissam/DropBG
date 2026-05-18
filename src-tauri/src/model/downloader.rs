@@ -17,6 +17,7 @@ pub enum ModelVariant {
     General,
     Matting,
     Dynamic,
+    HRMatting,
 }
 
 impl Default for ModelVariant {
@@ -33,6 +34,7 @@ impl ModelVariant {
             ModelVariant::Portrait,
             ModelVariant::General,
             ModelVariant::Matting,
+            ModelVariant::HRMatting,
             ModelVariant::Dynamic,
             ModelVariant::BEN2,
             ModelVariant::RMBG2,
@@ -49,6 +51,7 @@ impl ModelVariant {
             ModelVariant::General => "BiRefNet General",
             ModelVariant::Matting => "BiRefNet Matting",
             ModelVariant::Dynamic => "BiRefNet Dynamic",
+            ModelVariant::HRMatting => "BiRefNet HR-matting",
             ModelVariant::BEN2 => "BEN2",
             ModelVariant::RMBG2 => "RMBG 2.0",
             ModelVariant::InSPyReNet => "InSPyReNet",
@@ -64,6 +67,7 @@ impl ModelVariant {
             ModelVariant::General => "birefnet_general_fp16.onnx",
             ModelVariant::Matting => "birefnet_lite_matting_fp16.onnx",
             ModelVariant::Dynamic => "birefnet_dynamic_fp16.onnx",
+            ModelVariant::HRMatting => "birefnet_hr_matting_fp16.onnx",
             ModelVariant::BEN2 => "ben2_fp16.onnx",
             ModelVariant::RMBG2 => "rmbg2_fp16.onnx",
             ModelVariant::InSPyReNet => "inspyrenet_fp16.onnx",
@@ -81,6 +85,8 @@ impl ModelVariant {
             ModelVariant::Matting => "",
             // Dynamic has no pre-built ONNX — must be exported via scripts/export_dynamic_onnx.py
             ModelVariant::Dynamic => "",
+            // HR-matting has no pre-built ONNX — must be exported via scripts/export_hr_matting_onnx.py
+            ModelVariant::HRMatting => "",
             ModelVariant::BEN2 => "https://huggingface.co/onnx-community/BEN2-ONNX/resolve/main/onnx/model_fp16.onnx",
             ModelVariant::RMBG2 => "https://huggingface.co/briaai/RMBG-2.0/resolve/main/onnx/model_fp16.onnx",
             ModelVariant::InSPyReNet => "https://huggingface.co/OS-Software/InSPyReNet-SwinB-Plus-Ultra-ONNX/resolve/main/onnx/model_fp16.onnx",
@@ -94,6 +100,7 @@ impl ModelVariant {
             ModelVariant::RMBG2 => Some("https://huggingface.co/briaai/RMBG-2.0/blob/main/onnx/model_fp16.onnx"),
             ModelVariant::Matting => Some("https://huggingface.co/ZhengPeng7/BiRefNet_lite-matting"),
             ModelVariant::Dynamic => Some("https://huggingface.co/ZhengPeng7/BiRefNet_dynamic"),
+            ModelVariant::HRMatting => Some("https://huggingface.co/ZhengPeng7/BiRefNet_HR-matting"),
             ModelVariant::InSPyReNet => None,
             _ => None,
         }
@@ -101,7 +108,13 @@ impl ModelVariant {
 
     /// Whether this model requires manual download (gated or needs ONNX export).
     pub fn requires_manual_download(&self) -> bool {
-        matches!(self, ModelVariant::RMBG2 | ModelVariant::Matting | ModelVariant::Dynamic)
+        matches!(
+            self,
+            ModelVariant::RMBG2
+                | ModelVariant::Matting
+                | ModelVariant::Dynamic
+                | ModelVariant::HRMatting
+        )
     }
 
     pub fn approx_size(&self) -> &str {
@@ -112,6 +125,7 @@ impl ModelVariant {
             ModelVariant::General => "~490 MB",
             ModelVariant::Matting => "~214 MB",
             ModelVariant::Dynamic => "~490 MB",
+            ModelVariant::HRMatting => "~900 MB",
             ModelVariant::BEN2 => "~219 MB",
             ModelVariant::RMBG2 => "~514 MB",
             ModelVariant::InSPyReNet => "~300 MB",
@@ -127,6 +141,7 @@ impl ModelVariant {
             ModelVariant::General => "Newer training (epoch 244), improved general quality",
             ModelVariant::Matting => "True alpha mattes for hair/fur/glass (export required)",
             ModelVariant::Dynamic => "Native resolution 256-2304px, no resize artifacts (export required)",
+            ModelVariant::HRMatting => "High-resolution alpha mattes at 2048×2048 — best for large product / portrait shots (export required)",
             ModelVariant::BEN2 => "Best on hair & fine edges, handles complex scenes",
             ModelVariant::RMBG2 => "BRIA's enhanced BiRefNet, excellent quality (manual download)",
             ModelVariant::InSPyReNet => "Excellent on fuzzy edges, hair strands & fine detail",
@@ -140,6 +155,7 @@ impl ModelVariant {
             ModelVariant::MODNet => 512,
             ModelVariant::InSPyReNet => 1024,
             ModelVariant::Dynamic => 0, // native resolution
+            ModelVariant::HRMatting => 2048, // trained at 2048×2048
             _ => 1024,
         }
     }
@@ -153,7 +169,7 @@ impl ModelVariant {
     /// Whether this variant outputs true alpha mattes (not binary masks).
     #[allow(dead_code)]
     pub fn is_matting_model(&self) -> bool {
-        matches!(self, ModelVariant::Matting)
+        matches!(self, ModelVariant::Matting | ModelVariant::HRMatting)
     }
 
     /// Whether this variant is recommended for portrait/people images.
@@ -170,6 +186,7 @@ impl ModelVariant {
             ModelVariant::General => "General",
             ModelVariant::Matting => "Matting",
             ModelVariant::Dynamic => "Dynamic",
+            ModelVariant::HRMatting => "HRMatting",
             ModelVariant::BEN2 => "BEN2",
             ModelVariant::RMBG2 => "RMBG2",
             ModelVariant::InSPyReNet => "InSPyReNet",
@@ -185,6 +202,7 @@ impl ModelVariant {
             "General" => Some(ModelVariant::General),
             "Matting" => Some(ModelVariant::Matting),
             "Dynamic" => Some(ModelVariant::Dynamic),
+            "HRMatting" => Some(ModelVariant::HRMatting),
             "BEN2" => Some(ModelVariant::BEN2),
             "RMBG2" => Some(ModelVariant::RMBG2),
             "InSPyReNet" => Some(ModelVariant::InSPyReNet),
@@ -282,6 +300,7 @@ pub enum CloudProvider {
     Replicate,
     FalAI,
     RemoveBg,
+    Photoroom,
 }
 
 impl CloudProvider {
@@ -290,11 +309,17 @@ impl CloudProvider {
             CloudProvider::Replicate => "Replicate",
             CloudProvider::FalAI => "fal.ai",
             CloudProvider::RemoveBg => "remove.bg",
+            CloudProvider::Photoroom => "Photoroom",
         }
     }
 
     pub fn all() -> &'static [CloudProvider] {
-        &[CloudProvider::Replicate, CloudProvider::FalAI, CloudProvider::RemoveBg]
+        &[
+            CloudProvider::Replicate,
+            CloudProvider::FalAI,
+            CloudProvider::RemoveBg,
+            CloudProvider::Photoroom,
+        ]
     }
 
     pub fn variant_key(&self) -> &str {
@@ -302,6 +327,7 @@ impl CloudProvider {
             CloudProvider::Replicate => "Replicate",
             CloudProvider::FalAI => "FalAI",
             CloudProvider::RemoveBg => "RemoveBg",
+            CloudProvider::Photoroom => "Photoroom",
         }
     }
 
@@ -310,16 +336,85 @@ impl CloudProvider {
             "Replicate" => Some(CloudProvider::Replicate),
             "FalAI" => Some(CloudProvider::FalAI),
             "RemoveBg" => Some(CloudProvider::RemoveBg),
+            "Photoroom" => Some(CloudProvider::Photoroom),
             _ => None,
         }
     }
 
     pub fn description(&self) -> &str {
         match self {
-            CloudProvider::Replicate => "Cheapest (~$0.0004/img), runs BiRefNet on cloud GPUs",
-            CloudProvider::FalAI => "Fast & reliable (~$0.018/img), RMBG 2.0 + BiRefNet",
-            CloudProvider::RemoveBg => "Best polish (~$0.10/img), proprietary model",
+            CloudProvider::Replicate => "Community BiRefNet model on cloud GPUs — pay-per-run, check the model page",
+            CloudProvider::FalAI => "Fast and reliable BiRefNet endpoint — check provider page for current pricing",
+            CloudProvider::RemoveBg => "Mature proprietary API — paid credits, polished results",
+            CloudProvider::Photoroom => "Strong product-photo workflow for ecommerce — check provider page for pricing",
         }
+    }
+}
+
+// ===== fal.ai endpoints =====
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub enum FalAIEndpoint {
+    BiRefNet,
+    BriaRmbg,
+    Ideogram,
+}
+
+impl FalAIEndpoint {
+    pub fn name(&self) -> &str {
+        match self {
+            FalAIEndpoint::BiRefNet => "BiRefNet",
+            FalAIEndpoint::BriaRmbg => "BRIA RMBG 2.0",
+            FalAIEndpoint::Ideogram => "Ideogram Remove Background",
+        }
+    }
+
+    pub fn description(&self) -> &str {
+        match self {
+            FalAIEndpoint::BiRefNet => "Fast, reliable general-purpose remover",
+            FalAIEndpoint::BriaRmbg => "Commercial-safe RMBG 2.0 via API — ideal for product/ecommerce",
+            FalAIEndpoint::Ideogram => "High-quality cutouts with clean edges",
+        }
+    }
+
+    pub fn variant_key(&self) -> &str {
+        match self {
+            FalAIEndpoint::BiRefNet => "BiRefNet",
+            FalAIEndpoint::BriaRmbg => "BriaRmbg",
+            FalAIEndpoint::Ideogram => "Ideogram",
+        }
+    }
+
+    pub fn from_key(key: &str) -> Option<FalAIEndpoint> {
+        match key {
+            "BiRefNet" => Some(FalAIEndpoint::BiRefNet),
+            "BriaRmbg" => Some(FalAIEndpoint::BriaRmbg),
+            "Ideogram" => Some(FalAIEndpoint::Ideogram),
+            _ => None,
+        }
+    }
+
+    pub fn all() -> &'static [FalAIEndpoint] {
+        &[
+            FalAIEndpoint::BiRefNet,
+            FalAIEndpoint::BriaRmbg,
+            FalAIEndpoint::Ideogram,
+        ]
+    }
+
+    /// Sync inference URL — see https://fal.ai/models/<key>
+    pub fn fal_run_url(&self) -> &str {
+        match self {
+            FalAIEndpoint::BiRefNet => "https://fal.run/fal-ai/birefnet",
+            FalAIEndpoint::BriaRmbg => "https://fal.run/fal-ai/bria/background/remove",
+            FalAIEndpoint::Ideogram => "https://fal.run/fal-ai/ideogram/remove-background",
+        }
+    }
+}
+
+impl Default for FalAIEndpoint {
+    fn default() -> Self {
+        FalAIEndpoint::BiRefNet
     }
 }
 
@@ -346,6 +441,9 @@ pub struct AppConfig {
     /// Per-provider API keys: { "Replicate": "r8_...", "FalAI": "...", "RemoveBg": "..." }
     #[serde(default)]
     pub cloud_api_keys: std::collections::HashMap<String, String>,
+    /// Which fal.ai endpoint to use when CloudProvider::FalAI is selected
+    #[serde(default)]
+    pub fal_ai_endpoint: FalAIEndpoint,
 }
 
 impl AppConfig {
@@ -385,6 +483,7 @@ impl Default for AppConfig {
             cloud_provider: default_cloud_provider(),
             cloud_api_key: String::new(),
             cloud_api_keys: std::collections::HashMap::new(),
+            fal_ai_endpoint: FalAIEndpoint::default(),
         }
     }
 }

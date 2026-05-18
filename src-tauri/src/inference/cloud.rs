@@ -1,4 +1,4 @@
-use crate::model::downloader::{CloudProvider, load_config};
+use crate::model::downloader::{CloudProvider, FalAIEndpoint, load_config};
 use base64::Engine;
 use serde::Deserialize;
 
@@ -13,8 +13,9 @@ pub fn remove_background_cloud(image_bytes: &[u8]) -> Result<Vec<u8>, String> {
 
     match config.cloud_provider {
         CloudProvider::Replicate => replicate_remove_bg(image_bytes, api_key),
-        CloudProvider::FalAI => fal_remove_bg(image_bytes, api_key),
+        CloudProvider::FalAI => fal_remove_bg(image_bytes, api_key, &config.fal_ai_endpoint),
         CloudProvider::RemoveBg => removebg_remove_bg(image_bytes, api_key),
+        CloudProvider::Photoroom => photoroom_remove_bg(image_bytes, api_key),
     }
 }
 
@@ -152,7 +153,11 @@ fn download_replicate_output(
 
 // ===== fal.ai =====
 
-fn fal_remove_bg(image_bytes: &[u8], api_key: &str) -> Result<Vec<u8>, String> {
+fn fal_remove_bg(
+    image_bytes: &[u8],
+    api_key: &str,
+    endpoint: &FalAIEndpoint,
+) -> Result<Vec<u8>, String> {
     let client = reqwest::blocking::Client::builder()
         .timeout(std::time::Duration::from_secs(120))
         .build()
@@ -162,23 +167,27 @@ fn fal_remove_bg(image_bytes: &[u8], api_key: &str) -> Result<Vec<u8>, String> {
     let (mime, _) = detect_mime(image_bytes);
     let data_uri = format!("data:{};base64,{}", mime, b64);
 
-    // Use fal.ai BiRefNet endpoint
+    // All three fal.ai endpoints (BiRefNet, BRIA RMBG 2.0, Ideogram Remove Background)
+    // share the same request/response shape: { image_url } -> { image: { url } }.
     let body = serde_json::json!({
         "image_url": data_uri
     });
 
+    let endpoint_name = endpoint.name();
     let resp = client
-        .post("https://fal.run/fal-ai/birefnet")
+        .post(endpoint.fal_run_url())
         .header("Authorization", format!("Key {}", api_key))
         .header("Content-Type", "application/json")
         .json(&body)
         .send()
-        .map_err(|e| format!("fal.ai API error: {e}"))?;
+        .map_err(|e| format!("fal.ai ({endpoint_name}) API error: {e}"))?;
 
     if !resp.status().is_success() {
         let status = resp.status();
         let text = resp.text().unwrap_or_default();
-        return Err(format!("fal.ai API error ({}): {}", status, text));
+        return Err(format!(
+            "fal.ai ({endpoint_name}) API error ({status}): {text}"
+        ));
     }
 
     #[derive(Deserialize)]
@@ -190,16 +199,57 @@ fn fal_remove_bg(image_bytes: &[u8], api_key: &str) -> Result<Vec<u8>, String> {
         image: FalImage,
     }
 
-    let result: FalResponse = resp.json()
-        .map_err(|e| format!("Failed to parse fal.ai response: {e}"))?;
+    let result: FalResponse = resp
+        .json()
+        .map_err(|e| format!("Failed to parse fal.ai ({endpoint_name}) response: {e}"))?;
 
-    // Download result
     let img_resp = client
         .get(&result.image.url)
         .send()
-        .map_err(|e| format!("Failed to download fal.ai result: {e}"))?;
+        .map_err(|e| format!("Failed to download fal.ai ({endpoint_name}) result: {e}"))?;
 
-    let bytes = img_resp.bytes().map_err(|e| format!("Failed to read result: {e}"))?;
+    let bytes = img_resp
+        .bytes()
+        .map_err(|e| format!("Failed to read result: {e}"))?;
+    Ok(bytes.to_vec())
+}
+
+// ===== Photoroom =====
+
+fn photoroom_remove_bg(image_bytes: &[u8], api_key: &str) -> Result<Vec<u8>, String> {
+    // Endpoint: POST https://sdk.photoroom.com/v1/segment
+    // Auth: `x-api-key` header
+    // Body: multipart/form-data with `image_file`
+    // Response: raw PNG bytes
+    let client = reqwest::blocking::Client::builder()
+        .timeout(std::time::Duration::from_secs(60))
+        .build()
+        .map_err(|e| format!("HTTP client error: {e}"))?;
+
+    let (mime, filename) = detect_mime(image_bytes);
+    let part = reqwest::blocking::multipart::Part::bytes(image_bytes.to_vec())
+        .file_name(filename.to_string())
+        .mime_str(mime)
+        .map_err(|e| format!("Multipart error: {e}"))?;
+
+    let form = reqwest::blocking::multipart::Form::new().part("image_file", part);
+
+    let resp = client
+        .post("https://sdk.photoroom.com/v1/segment")
+        .header("x-api-key", api_key)
+        .multipart(form)
+        .send()
+        .map_err(|e| format!("Photoroom API error: {e}"))?;
+
+    if !resp.status().is_success() {
+        let status = resp.status();
+        let text = resp.text().unwrap_or_default();
+        return Err(format!("Photoroom API error ({status}): {text}"));
+    }
+
+    let bytes = resp
+        .bytes()
+        .map_err(|e| format!("Failed to read Photoroom result: {e}"))?;
     Ok(bytes.to_vec())
 }
 

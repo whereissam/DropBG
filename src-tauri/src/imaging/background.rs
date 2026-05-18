@@ -83,3 +83,85 @@ pub fn replace_with_image(fg: &RgbaImage, bg: &DynamicImage) -> RgbaImage {
 
     result
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use image::{Rgba, RgbaImage};
+
+    fn fg_pixel(r: u8, g: u8, b: u8, a: u8) -> RgbaImage {
+        let mut img = RgbaImage::new(1, 1);
+        img.put_pixel(0, 0, Rgba([r, g, b, a]));
+        img
+    }
+
+    #[test]
+    fn fully_opaque_fg_preserves_color_alpha_255() {
+        let fg = fg_pixel(100, 150, 200, 255);
+        let out = replace_with_color(&fg, 0, 0, 0);
+        let p = out.get_pixel(0, 0);
+        assert_eq!(p[0], 100);
+        assert_eq!(p[1], 150);
+        assert_eq!(p[2], 200);
+        assert_eq!(p[3], 255);
+    }
+
+    #[test]
+    fn fully_transparent_fg_shows_only_background() {
+        let fg = fg_pixel(255, 255, 255, 0);
+        let out = replace_with_color(&fg, 42, 84, 168);
+        let p = out.get_pixel(0, 0);
+        assert_eq!(p[0], 42);
+        assert_eq!(p[1], 84);
+        assert_eq!(p[2], 168);
+        assert_eq!(p[3], 255);
+    }
+
+    #[test]
+    fn half_alpha_blends_evenly() {
+        let fg = fg_pixel(255, 0, 0, 128);
+        let out = replace_with_color(&fg, 0, 0, 255);
+        let p = out.get_pixel(0, 0);
+        // 255 * (128/255) + 0  ≈ 128
+        // 0   * (128/255) + 255*(1 - 128/255) ≈ 127
+        assert!((p[0] as i32 - 128).abs() <= 1, "red ≈ 128, got {}", p[0]);
+        assert!(p[1] <= 1, "green ≈ 0, got {}", p[1]);
+        assert!((p[2] as i32 - 127).abs() <= 2, "blue ≈ 127, got {}", p[2]);
+        assert_eq!(p[3], 255);
+    }
+
+    #[test]
+    fn gradient_interpolates_top_to_bottom() {
+        // 1×10 transparent fg → result reveals the gradient
+        let mut fg = RgbaImage::new(1, 10);
+        for px in fg.pixels_mut() {
+            *px = Rgba([0, 0, 0, 0]);
+        }
+        let out = replace_with_gradient(&fg, 0, 0, 0, 255, 255, 255);
+        let top = out.get_pixel(0, 0);
+        let bot = out.get_pixel(0, 9);
+        assert_eq!(top[0], 0);
+        // bottom should be near full white (t = 9/10 = 0.9 → 229)
+        assert!(bot[0] >= 220, "bottom red should be near 255 — got {}", bot[0]);
+        // monotonic non-decreasing
+        let mut prev = 0u8;
+        for y in 0..10 {
+            let v = out.get_pixel(0, y)[0];
+            assert!(v >= prev, "gradient not monotonic at y={y}");
+            prev = v;
+        }
+    }
+
+    #[test]
+    fn output_dimensions_match_foreground() {
+        let mut fg = RgbaImage::new(13, 7);
+        for px in fg.pixels_mut() {
+            *px = Rgba([255, 255, 255, 255]);
+        }
+        let out = replace_with_color(&fg, 0, 0, 0);
+        assert_eq!(out.dimensions(), (13, 7));
+
+        let out2 = replace_with_gradient(&fg, 0, 0, 0, 255, 0, 0);
+        assert_eq!(out2.dimensions(), (13, 7));
+    }
+}

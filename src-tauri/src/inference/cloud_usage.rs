@@ -2,12 +2,14 @@ use crate::model::downloader::CloudProvider;
 use serde::Serialize;
 use std::sync::{Arc, Mutex};
 
-/// Estimated cost per image for each provider (USD).
+/// Estimated cost per image for each provider (USD). These are rough averages;
+/// users should check the provider's pricing page for current rates.
 fn cost_per_image(provider: &CloudProvider) -> f64 {
     match provider {
         CloudProvider::Replicate => 0.0004,
         CloudProvider::FalAI => 0.018,
         CloudProvider::RemoveBg => 0.10,
+        CloudProvider::Photoroom => 0.10,
     }
 }
 
@@ -37,6 +39,7 @@ struct UsageInner {
     replicate: u32,
     fal_ai: u32,
     remove_bg: u32,
+    photoroom: u32,
 }
 
 impl CloudUsageState {
@@ -53,6 +56,7 @@ impl CloudUsageState {
                 CloudProvider::Replicate => inner.replicate += 1,
                 CloudProvider::FalAI => inner.fal_ai += 1,
                 CloudProvider::RemoveBg => inner.remove_bg += 1,
+                CloudProvider::Photoroom => inner.photoroom += 1,
             }
         }
     }
@@ -69,6 +73,7 @@ impl CloudUsageState {
             (CloudProvider::Replicate, inner.replicate),
             (CloudProvider::FalAI, inner.fal_ai),
             (CloudProvider::RemoveBg, inner.remove_bg),
+            (CloudProvider::Photoroom, inner.photoroom),
         ] {
             if count > 0 {
                 let cost = count as f64 * cost_per_image(&provider);

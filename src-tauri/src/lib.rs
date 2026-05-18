@@ -57,6 +57,7 @@ pub fn run() {
             commands::reset_cloud_usage,
             commands::remove_background_cloud,
             commands::remove_background_batch_cloud,
+            commands::set_fal_ai_endpoint,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

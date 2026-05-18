@@ -902,13 +902,36 @@ pub fn get_cloud_config() -> Result<serde_json::Value, String> {
         })
         .collect();
 
+    let fal_ai_endpoints: Vec<serde_json::Value> = downloader::FalAIEndpoint::all()
+        .iter()
+        .map(|e| {
+            serde_json::json!({
+                "key": e.variant_key(),
+                "name": e.name(),
+                "description": e.description(),
+            })
+        })
+        .collect();
+
     Ok(serde_json::json!({
         "enabled": config.cloud_enabled,
         "provider": config.cloud_provider.variant_key(),
         "provider_name": config.cloud_provider.name(),
         "has_api_key": config.has_cloud_api_key(),
         "providers": providers,
+        "fal_ai_endpoint": config.fal_ai_endpoint.variant_key(),
+        "fal_ai_endpoint_name": config.fal_ai_endpoint.name(),
+        "fal_ai_endpoints": fal_ai_endpoints,
     }))
+}
+
+#[tauri::command]
+pub fn set_fal_ai_endpoint(endpoint: String) -> Result<(), String> {
+    let e = downloader::FalAIEndpoint::from_key(&endpoint)
+        .ok_or_else(|| format!("Unknown fal.ai endpoint: {endpoint}"))?;
+    let mut config = downloader::load_config().map_err(|err| err.to_string())?;
+    config.fal_ai_endpoint = e;
+    downloader::save_config(&config).map_err(|err| err.to_string())
 }
 
 #[tauri::command]
