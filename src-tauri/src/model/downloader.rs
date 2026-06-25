@@ -567,7 +567,24 @@ pub fn save_config(config: &AppConfig) -> anyhow::Result<()> {
     }
     let data = serde_json::to_string_pretty(config)?;
     fs::write(&path, data)?;
+    // The config holds plaintext cloud API keys — keep it readable only by the
+    // owning user (0600) so other local accounts/processes can't read them.
+    restrict_to_owner(&path);
     Ok(())
+}
+
+/// Best-effort: tighten file permissions to owner read/write only (Unix).
+/// No-op on other platforms.
+fn restrict_to_owner(path: &std::path::Path) {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let _ = fs::set_permissions(path, fs::Permissions::from_mode(0o600));
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = path;
+    }
 }
 
 pub fn current_variant() -> anyhow::Result<ModelVariant> {
@@ -642,12 +659,24 @@ pub fn download_model_variant<F>(variant: &ModelVariant, dest: &PathBuf, on_prog
 where
     F: Fn(f64) + Send + 'static,
 {
+    let url = variant.url();
+    if url.is_empty() {
+        anyhow::bail!(
+            "{} has no automatic download — it must be downloaded/exported manually.",
+            variant.name()
+        );
+    }
+    // Models are loaded into the ONNX runtime, so only fetch them over TLS.
+    if !url.starts_with("https://") {
+        anyhow::bail!("Refusing to download model over a non-HTTPS URL");
+    }
+
     if let Some(parent) = dest.parent() {
         fs::create_dir_all(parent)?;
     }
 
     let client = reqwest::blocking::Client::new();
-    let mut resp = client.get(variant.url()).send()?;
+    let mut resp = client.get(url).send()?;
 
     if !resp.status().is_success() {
         anyhow::bail!("Download failed with status: {}", resp.status());

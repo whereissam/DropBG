@@ -14,12 +14,48 @@ pub fn complete_onboarding() -> Result<(), String> {
     downloader::save_config(&config).map_err(|e| e.to_string())
 }
 
+/// Hosts the app is allowed to open in the user's browser. Exact host match or
+/// a `.`-prefixed subdomain match only — no substring matching.
+const ALLOWED_BROWSER_HOSTS: &[&str] = &[
+    "huggingface.co",
+    "replicate.com",
+    "fal.ai",
+    "remove.bg",
+    "photoroom.com",
+];
+
+fn is_allowed_browser_url(url: &str) -> bool {
+    // Must be https and contain no control chars / whitespace that could be
+    // abused when handed to `open`.
+    if !url.starts_with("https://") || url.chars().any(|c| c.is_control() || c == ' ') {
+        return false;
+    }
+    // Extract the host: strip scheme, then take everything up to the first
+    // '/', '?', '#' or end. Reject any embedded credentials ('@').
+    let after_scheme = &url["https://".len()..];
+    let authority = after_scheme
+        .split(['/', '?', '#'])
+        .next()
+        .unwrap_or("");
+    if authority.is_empty() || authority.contains('@') {
+        return false;
+    }
+    // Drop an optional port.
+    let host = authority.split(':').next().unwrap_or("");
+    ALLOWED_BROWSER_HOSTS.iter().any(|allowed| {
+        host == *allowed || host.ends_with(&format!(".{allowed}"))
+    })
+}
+
 #[tauri::command]
 pub fn open_url_in_browser(url: String) -> Result<(), String> {
-    // Only allow huggingface.co URLs
-    if !url.starts_with("https://huggingface.co/") {
-        return Err("Only HuggingFace URLs are allowed".to_string());
+    // Restrict to an explicit allowlist of provider/model hosts over HTTPS so a
+    // compromised frontend can't open arbitrary (file://, javascript:, …) URLs.
+    if !is_allowed_browser_url(&url) {
+        return Err("This URL is not allowed".to_string());
     }
+    // No shell is involved (Command does not interpret the string), and the
+    // https:// prefix guarantees the URL can't be parsed as an `open` flag.
     std::process::Command::new("open")
         .arg(&url)
         .spawn()
