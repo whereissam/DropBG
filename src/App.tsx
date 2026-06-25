@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { checkModelReady, isOnboardingDone, completeOnboarding, downloadModel, openPathInFinder, getModelInfo, getOutputDir, removeBackgroundBatch, removeBackgroundBatchCloud, appleVisionAvailable, removeBackgroundAppleVision, getCloudConfig, removeBackgroundCloud } from "./tauri";
+import { checkModelReady, isOnboardingDone, completeOnboarding, downloadModel, openPathInFinder, getModelInfo, getOutputDir, removeBackground, removeBackgroundBatch, removeBackgroundBatchCloud, appleVisionAvailable, removeBackgroundAppleVision, getCloudConfig, removeBackgroundCloud } from "./tauri";
 import DropZone from "./components/DropZone";
 import Onboarding from "./components/Onboarding";
 import ModelSetup from "./components/ModelSetup";
@@ -164,7 +164,6 @@ export default function App() {
       } else if (useAppleVision) {
         base64 = await removeBackgroundAppleVision(filePath);
       } else {
-        const { removeBackground } = await import("./tauri");
         base64 = await removeBackground(filePath);
       }
       setTransparentBase64(base64);

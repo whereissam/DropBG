@@ -23,3 +23,15 @@ dirs = "6"
 tokio = { version = "1", features = ["fs", "rt"] }
 open = "5"
 swift-rs = "1.0"
+
+# Release builds are optimized for a small shippable binary. ONNX Runtime (the
+# bulk of the binary) is prebuilt native code, so opt-level "s" trims our Rust
+# without hurting inference speed. `strip` drops symbols, LTO + a single codegen
+# unit let the linker discard unused code. Panic unwinding is kept (not aborted)
+# so a panic inside a spawn_blocking image-decode surfaces as a recoverable error.
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+strip = true
+panic = "unwind"
