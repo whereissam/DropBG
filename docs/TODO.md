@@ -196,6 +196,87 @@ Implementation work to back the curated docs lineup. Each item adds a download U
 - [x] ~~Audit `unwrap()` / `expect()` in Rust modules~~ — Audited: only 1 `.expect()` in the entire backend (`lib.rs:62`, Tauri `app.run()` boilerplate where panic is correct). Codebase is already clean.
 - [x] Add a minimal smoke-test harness — added `#[cfg(test)] mod tests` to `imaging/autocrop.rs` (5 tests) and `imaging/background.rs` (5 tests). `cargo test --lib` passes 10/10 in ~0.00s. Foundation for catching regressions in pure imaging logic.
 
+## Phase 11 — Quality Engine Pass (post-lineup)
+
+Roadmap based on a model + performance review dated **2026-06-25**. Conclusion:
+the curated lineup is **not** outdated — no MIT-licensed, easily ONNX-able model
+has emerged that broadly beats BiRefNet HR-matting. The one obvious gap is
+**BiRefNet Dynamic Matting**. Beyond that, the next real product jump comes from
+the *inference + post-processing* layer (Native Core ML, FP16, on-device
+benchmarking, edge-only HR refinement, foreground decontamination), **not** from
+shipping a 12th model. Research models (DiffDIS, PDFNet, depth-assisted DIS) stay
+in a benchmark backlog — too heavy, ONNX/Core ML port risk too high, alpha not
+necessarily compositing-grade.
+
+Work top-to-bottom; steps are ordered by impact. Each lands as its own commit.
+
+### 11.1 — Add BiRefNet Dynamic Matting (new Quality default)
+
+`ZhengPeng7/BiRefNet_dynamic-matting` — distinct from the existing `Dynamic`:
+Dynamic is fg/bg segmentation, Dynamic-matting outputs a finer **alpha matte**,
+accepts arbitrary ~256–2304 px sizes/aspect ratios (no forced square resize that
+blurs hair / drops thin product edges).
+
+- [ ] Add `ModelVariant::DynamicMatting` in `downloader.rs` (name, filename `birefnet_dynamic_matting_fp16.onnx`, `is_matting_model = true`, `input_size = 0` native, `variant_key`, `from_key`, `approx_size`, `description`)
+- [ ] Add `scripts/export_dynamic_matting_onnx.py` (mirror `export_dynamic_onnx.py`, MODEL_ID `ZhengPeng7/BiRefNet_dynamic-matting`) — manual-export flow like the other dynamic/matting variants
+- [ ] **Validate first:** confirm dynamic-shape ONNX export does not force a Core ML EP → CPU fallback before promoting it as default (see 11.2 benchmark)
+- [ ] Promote Dynamic Matting to the **Quality default**, demoting `General` to an advanced option
+- [ ] Docs sync (README / landing / USAGE) — add to lineup tables with MIT license column
+
+### 11.2 — Inference backend selection (Native Core ML + FP16 + auto-benchmark)
+
+ORT's Core ML EP can use CPU/GPU/Neural Engine, but unsupported ops get
+partitioned back to CPU and the partitioning overhead can make it *slower* than
+plain CPU. Don't assume Native Core ML is faster either — measure per machine.
+
+- [ ] Add a Native Core ML backend: ship/convert each curated model to FP16 `.mlpackage`, compile to `.mlmodelc` on first use
+- [ ] Backend abstraction with three paths: ORT CPU fallback · ORT Core ML EP · Native Core ML
+- [ ] First-run, per-model micro-benchmark on a bundled test image; persist the fastest *correct* backend per `{model, device, precision}`:
+  ```json
+  { "model": "birefnet-dynamic-matting", "device": "MacBookPro18,3",
+    "backend": "coreml-native", "precision": "fp16",
+    "median_ms": 1780, "peak_memory_mb": 1210 }
+  ```
+- [ ] Compare warm-up-median latency, peak memory, and output-mask diff across backends; reject a faster backend whose mask diverges
+- [ ] FP16 policy: Apple Silicon default FP16; Intel Mac benchmark FP16 vs FP32; keep mask resize / normalization / compositing in FP32 to avoid alpha banding
+- [ ] (Supersedes Phase 7 "Performance benchmarks on Apple Silicon" — fold that item in here)
+
+### 11.3 — Model picker → 4 user modes
+
+Stop leading the UI with ~10 technical model names. Surface four modes; expose
+raw model selection only under Advanced.
+
+- [ ] **Fast** → Apple Vision, fallback BiRefNet Lite
+- [ ] **Balanced** → BiRefNet Dynamic Matting
+- [ ] **Best Edges** → BiRefNet HR-matting + edge refinement
+- [ ] **Product** → BiRefNet Dynamic / General + hard-edge cleanup
+- [ ] Per-model card shows *measured* cost from 11.2, e.g. `1.8 s · 1.2 GB · Neural Engine`, plus a "Recommended for this image" hint
+- [ ] Move the full 11-model list into Advanced settings (RMBG 2.0 stays non-commercial / BYO-cloud, never a default)
+
+### 11.4 — Edge-only HR refinement (two-stage, tiled)
+
+Don't run a heavy model over a whole 6000×4000 image, and don't downscale
+everything either. Coarse mask first, then HR-matting only on uncertain edges.
+
+- [ ] Stage 1: full-subject coarse mask via 1024 / Dynamic model
+- [ ] Detect uncertain regions (hair, fur, translucency, high mask-gradient borders, mid-confidence pixels)
+- [ ] Stage 2: build high-res tiles for those regions only, run HR-matting, overlap-blend the alpha
+- [ ] Memory-friendly path so it runs on a normal MacBook, not just high-RAM machines
+
+### 11.5 — Foreground decontamination + 16-bit alpha
+
+Background removal isn't just an alpha mask — hair shot on blue/green/dark
+backgrounds leaves colored fringes when composited onto white.
+
+- [ ] Pipeline: segmentation → alpha refinement → foreground color estimation → edge decontamination → compositing
+- [ ] Add optional **16-bit alpha PNG export** (8-bit alpha crushes fine hair / glass / smoke detail that good inference produces)
+
+### 11.6 — Internal benchmark set + copy fixes
+
+- [ ] Build a private 50–100 image test set: portraits, hair, pets, products, glass, shadows, thin lines, low-contrast backgrounds (no trustworthy public benchmark answers "best model for the DropBG/macOS pipeline")
+- [ ] Reword BEN2 copy from "Hair, fur, difficult boundaries" → "Experimental alternative for difficult boundaries; benchmark against BiRefNet Matting before use" (README + landing + USAGE + `downloader.rs` description). Public MIT release is the base model; best refinement path / commercial terms are less clean than BiRefNet
+- [ ] Keep DiffDIS / PDFNet / depth-assisted DIS in a benchmark backlog only — not in the model picker
+
 ## Stretch Goals
 
 - [ ] Figma plugin companion (thin plugin → DropBG local API)

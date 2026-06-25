@@ -7,7 +7,7 @@
 <p align="center">Local-first background remover for macOS.<br>No uploads by default. No subscriptions. No app-level resolution limits.</p>
 
 <p align="center">
-  <img src="src/assets/screenshot.png" width="600" alt="DropBG Screenshot" />
+  <img src="web/public/screenshot.png" width="600" alt="DropBG Screenshot" />
 </p>
 
 ## What is DropBG?
@@ -53,7 +53,7 @@ A cloud option is available if you want to bring your own API key — but it is 
 | **BiRefNet Matting** | Best edges        | Manual   | Alpha mattes for hair, fur, transparency| MIT                                      |
 | **BiRefNet HR-matting** | High-resolution | Manual   | Alpha mattes at 2048×2048 — large product / portrait shots | MIT                       |
 | **BiRefNet Dynamic** | Native resolution | Manual   | Arbitrary image sizes (256–2304 px)     | MIT                                      |
-| **BEN2**             | Edge detail       | ~219 MB  | Hair, fur, difficult boundaries (experimental) | MIT                              |
+| **BEN2**             | Edge detail       | ~219 MB  | Experimental alternative for difficult boundaries — benchmark against BiRefNet Matting first | MIT |
 | **RMBG 2.0**         | Product           | ~514 MB  | Ecommerce / product shots               | **CC BY-NC 4.0** — non-commercial only \*|
 | **MODNet**           | Lightweight       | ~13 MB   | Portraits, legacy use                   | Apache 2.0                               |
 
@@ -139,10 +139,15 @@ That's it. Everything after the initial model download runs offline.
 
 ## Roadmap
 
-- More polished model picker with on-device benchmarks
-- Smart subject selection (SAM-style) for manual touch-ups
-- Optional automatic alpha matting refinement
-- Signed/notarized macOS builds
+The lineup itself is current — the next jump comes from the inference and
+post-processing layer, not from adding more models (see [docs/TODO.md](docs/TODO.md) Phase 11):
+
+- **BiRefNet Dynamic Matting** — native-resolution alpha mattes, set to become the Quality default
+- **Native Core ML + FP16 backend** with first-run, per-machine benchmarking (auto-pick ORT CPU / ORT Core ML EP / Native Core ML)
+- **Edge-only HR refinement** — coarse mask, then HR-matting only on uncertain edges (hair, fur, translucency)
+- **Foreground color decontamination + 16-bit alpha export** — kill colored fringes, preserve fine detail
+- **Four user modes** (Fast / Balanced / Best Edges / Product) with raw model selection under Advanced
+- Signed / notarized macOS builds
 
 See [docs/TODO.md](docs/TODO.md) for the full roadmap.
 
@@ -153,7 +158,7 @@ DropBG/
 ├── src-tauri/                # Rust backend
 │   ├── src/
 │   │   ├── lib.rs            # Tauri entry + command registration
-│   │   ├── commands.rs       # IPC command handlers
+│   │   ├── commands/         # IPC command handlers (system, model, inference, cloud, editing, postprocess)
 │   │   ├── inference/        # ONNX Runtime session, pre/post processing, upscale
 │   │   ├── imaging/          # Auto-crop, background replacement
 │   │   └── model/            # Model downloader + config management
