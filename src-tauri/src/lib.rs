@@ -58,6 +58,11 @@ pub fn run() {
             commands::remove_background_cloud,
             commands::remove_background_batch_cloud,
             commands::set_fal_ai_endpoint,
+            commands::get_backend_info,
+            commands::benchmark_inference_backends,
+            commands::get_processing_mode,
+            commands::set_processing_mode,
+            commands::refine_edges_hr,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

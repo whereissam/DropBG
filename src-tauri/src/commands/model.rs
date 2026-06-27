@@ -46,8 +46,11 @@ pub fn set_model_variant(variant: String, state: State<'_, SessionState>) -> Res
     let v = downloader::ModelVariant::from_key(&variant)
         .ok_or_else(|| format!("Unknown variant: {variant}"))?;
     let mut config = downloader::load_config().map_err(|e| e.to_string())?;
-    if config.model_variant != v {
+    // Picking a raw model from the Advanced list drops out of any preset mode.
+    let mode_changed = config.processing_mode != downloader::ProcessingMode::Advanced;
+    if config.model_variant != v || mode_changed {
         config.model_variant = v;
+        config.processing_mode = downloader::ProcessingMode::Advanced;
         downloader::save_config(&config).map_err(|e| e.to_string())?;
         // Clear loaded session so next inference reloads the new model
         state.clear();
@@ -81,4 +84,105 @@ pub async fn download_model(app: AppHandle) -> Result<(), String> {
     .await
     .map_err(|e| e.to_string())?
     .map_err(|e| e.to_string())
+}
+
+// ===== Inference backend benchmark (Phase 11.2) =====
+
+/// Current backend status for the selected model — no inference is run.
+#[tauri::command]
+pub fn get_backend_info() -> Result<crate::inference::backend::BackendInfo, String> {
+    let config = downloader::load_config().map_err(|e| e.to_string())?;
+    Ok(crate::inference::backend::backend_info(&config.model_variant))
+}
+
+/// Benchmark the available inference backends (Core ML EP vs CPU) for the
+/// currently selected model, persist the fastest *correct* one for this
+/// machine, and clear the session so the next inference uses it.
+#[tauri::command]
+pub async fn benchmark_inference_backends(
+    state: State<'_, SessionState>,
+) -> Result<crate::inference::backend::BenchmarkReport, String> {
+    let report = tokio::task::spawn_blocking(|| -> Result<_, String> {
+        let config = downloader::load_config().map_err(|e| e.to_string())?;
+        let variant = config.model_variant.clone();
+        let path = downloader::model_path().map_err(|e| e.to_string())?;
+        if !path.exists() {
+            return Err(format!(
+                "{} is not downloaded — download it before benchmarking.",
+                variant.name()
+            ));
+        }
+
+        let report =
+            crate::inference::backend::benchmark(&variant, &path, variant.input_size())?;
+
+        // Persist the winner for this {variant, device}.
+        let mut config = downloader::load_config().map_err(|e| e.to_string())?;
+        config.backend_benchmarks.insert(
+            crate::inference::backend::bench_key(&variant, &report.device),
+            report.chosen.clone(),
+        );
+        downloader::save_config(&config).map_err(|e| e.to_string())?;
+
+        Ok(report)
+    })
+    .await
+    .map_err(|e| e.to_string())??;
+
+    // Force the next session build to honor the freshly chosen backend.
+    state.clear();
+    Ok(report)
+}
+
+// ===== Processing modes (Phase 11.3) =====
+
+#[derive(serde::Serialize)]
+pub struct ProcessingModeOption {
+    pub key: String,
+    pub label: String,
+    pub description: String,
+    pub variant: Option<String>, // variant_key, or null for Apple Vision / Advanced
+    pub uses_apple_vision: bool,
+}
+
+#[derive(serde::Serialize)]
+pub struct ProcessingModeInfo {
+    pub current: String,
+    pub modes: Vec<ProcessingModeOption>,
+}
+
+/// The four user-facing modes plus the currently selected one.
+#[tauri::command]
+pub fn get_processing_mode() -> Result<ProcessingModeInfo, String> {
+    let config = downloader::load_config().map_err(|e| e.to_string())?;
+    let modes = downloader::ProcessingMode::user_modes()
+        .iter()
+        .map(|m| ProcessingModeOption {
+            key: m.key().to_string(),
+            label: m.label().to_string(),
+            description: m.description().to_string(),
+            variant: m.variant().map(|v| v.variant_key().to_string()),
+            uses_apple_vision: m.uses_apple_vision(),
+        })
+        .collect();
+    Ok(ProcessingModeInfo {
+        current: config.processing_mode.key().to_string(),
+        modes,
+    })
+}
+
+/// Select a processing mode. Non-Fast modes also set the underlying model
+/// variant; Fast routes through Apple Vision (handled in the frontend).
+#[tauri::command]
+pub fn set_processing_mode(mode: String, state: State<'_, SessionState>) -> Result<(), String> {
+    let m = downloader::ProcessingMode::from_key(&mode)
+        .ok_or_else(|| format!("Unknown mode: {mode}"))?;
+    let mut config = downloader::load_config().map_err(|e| e.to_string())?;
+    config.processing_mode = m.clone();
+    if let Some(v) = m.variant() {
+        config.model_variant = v;
+    }
+    downloader::save_config(&config).map_err(|e| e.to_string())?;
+    state.clear();
+    Ok(())
 }

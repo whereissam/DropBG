@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { checkModelReady, isOnboardingDone, completeOnboarding, downloadModel, openPathInFinder, getModelInfo, getOutputDir, removeBackground, removeBackgroundBatch, removeBackgroundBatchCloud, appleVisionAvailable, removeBackgroundAppleVision, getCloudConfig, removeBackgroundCloud } from "./tauri";
+import { checkModelReady, isOnboardingDone, completeOnboarding, downloadModel, openPathInFinder, getModelInfo, getOutputDir, removeBackground, removeBackgroundBatch, removeBackgroundBatchCloud, appleVisionAvailable, removeBackgroundAppleVision, getCloudConfig, removeBackgroundCloud, getProcessingMode } from "./tauri";
 import DropZone from "./components/DropZone";
 import Onboarding from "./components/Onboarding";
 import ModelSetup from "./components/ModelSetup";
@@ -64,8 +64,22 @@ export default function App() {
           setStage("onboarding");
           return;
         }
+
+        // Fast mode runs through Apple Vision (no model needed). Cloud still
+        // takes precedence at process time (handleProcessSingle checks it first).
+        const modeInfo = await getProcessingMode().catch(() => null);
+        if (modeInfo?.current === "Fast") {
+          const hasVision = await appleVisionAvailable().catch(() => false);
+          if (hasVision) {
+            setUseAppleVision(true);
+            setStage("ready");
+            return;
+          }
+        }
+
         const ready = await checkModelReady();
         if (ready) {
+          setUseAppleVision(false);
           setStage("ready");
         } else {
           // Check if cloud mode is enabled — skip model setup
@@ -267,6 +281,14 @@ export default function App() {
           onClose={() => setShowSettings(false)}
           onModelDeleted={() => setStage("setup")}
           onToast={(msg, type) => addToast(msg, type)}
+          onModeChanged={async (mode) => {
+            if (mode === "Fast") {
+              const hasVision = await appleVisionAvailable().catch(() => false);
+              setUseAppleVision(hasVision);
+            } else {
+              setUseAppleVision(false);
+            }
+          }}
         />
       )}
 

@@ -53,6 +53,7 @@ A cloud option is available if you want to bring your own API key — but it is 
 | **BiRefNet Matting** | Best edges        | Manual   | Alpha mattes for hair, fur, transparency| MIT                                      |
 | **BiRefNet HR-matting** | High-resolution | Manual   | Alpha mattes at 2048×2048 — large product / portrait shots | MIT                       |
 | **BiRefNet Dynamic** | Native resolution | Manual   | Arbitrary image sizes (256–2304 px)     | MIT                                      |
+| **BiRefNet Dynamic Matting** | Native-res alpha | Manual | Soft alpha mattes at the image's own size — hair/fur/glass without a forced square resize | MIT             |
 | **BEN2**             | Edge detail       | ~219 MB  | Experimental alternative for difficult boundaries — benchmark against BiRefNet Matting first | MIT |
 | **RMBG 2.0**         | Product           | ~514 MB  | Ecommerce / product shots               | **CC BY-NC 4.0** — non-commercial only \*|
 | **MODNet**           | Lightweight       | ~13 MB   | Portraits, legacy use                   | Apache 2.0                               |
@@ -142,7 +143,7 @@ That's it. Everything after the initial model download runs offline.
 The lineup itself is current — the next jump comes from the inference and
 post-processing layer, not from adding more models (see [docs/TODO.md](docs/TODO.md) Phase 11):
 
-- **BiRefNet Dynamic Matting** — native-resolution alpha mattes, set to become the Quality default
+- **BiRefNet Dynamic Matting** — native-resolution alpha mattes (now available as a manual/advanced model; promotion to the Quality default is gated on the per-machine backend benchmark below)
 - **Native Core ML + FP16 backend** with first-run, per-machine benchmarking (auto-pick ORT CPU / ORT Core ML EP / Native Core ML)
 - **Edge-only HR refinement** — coarse mask, then HR-matting only on uncertain edges (hair, fur, translucency)
 - **Foreground color decontamination + 16-bit alpha export** — kill colored fringes, preserve fine detail

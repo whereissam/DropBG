@@ -1,3 +1,4 @@
+use crate::inference::backend;
 use crate::model::downloader;
 use ort::session::Session;
 use std::sync::{Arc, Mutex};
@@ -21,19 +22,15 @@ impl SessionState {
     pub fn ensure_loaded(&self) -> Result<(), String> {
         let mut guard = self.session.lock().map_err(|e| format!("Session lock poisoned: {e}"))?;
         if guard.is_none() {
+            let config = downloader::load_config().map_err(|e| e.to_string())?;
+            let variant = config.model_variant.clone();
             let model_path = downloader::model_path().map_err(|e| e.to_string())?;
             if !model_path.exists() {
                 return Err("Model not downloaded yet. Please download the model first.".into());
             }
 
-            let session = Session::builder()
-                .map_err(|e| format!("Failed to create session builder: {e}"))?
-                .with_execution_providers([
-                    ort::execution_providers::CoreMLExecutionProvider::default().build(),
-                ])
-                .map_err(|e| format!("Failed to set execution provider: {e}"))?
-                .commit_from_file(&model_path)
-                .map_err(|e| format!("Failed to load model: {e}"))?;
+            let chosen = backend::resolve_backend(&variant);
+            let session = backend::build_session(&model_path, chosen)?;
 
             *guard = Some(session);
         }
@@ -58,14 +55,8 @@ impl SessionState {
 
         let mut guard = self.session.lock().map_err(|e| format!("Session lock poisoned: {e}"))?;
 
-        let session = Session::builder()
-            .map_err(|e| format!("Failed to create session builder: {e}"))?
-            .with_execution_providers([
-                ort::execution_providers::CoreMLExecutionProvider::default().build(),
-            ])
-            .map_err(|e| format!("Failed to set execution provider: {e}"))?
-            .commit_from_file(&path)
-            .map_err(|e| format!("Failed to load model: {e}"))?;
+        let chosen = backend::resolve_backend(variant);
+        let session = backend::build_session(&path, chosen)?;
 
         *guard = Some(session);
         Ok(())

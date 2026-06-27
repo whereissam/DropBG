@@ -94,7 +94,8 @@ DropBG ships with **Apple Vision** as the zero-download default. You can add spe
 | **BiRefNet Matting** | Best edges | Manual | Alpha mattes for hair, fur, transparency | MIT |
 | **BiRefNet HR-matting** | High-resolution | Manual | Alpha mattes at 2048×2048 — best for large product / portrait shots | MIT |
 | **BiRefNet Dynamic** | Native resolution | Manual | Arbitrary image sizes (256–2304 px) | MIT |
-| **BEN2** | Edge detail | ~219 MB | Hair, fur, difficult boundaries (experimental) | MIT |
+| **BiRefNet Dynamic Matting** | Native-res alpha | Manual | Soft alpha mattes at the image's own size — hair/fur/glass without a forced square resize | MIT |
+| **BEN2** | Edge detail | ~219 MB | Experimental alternative for difficult boundaries — benchmark against BiRefNet Matting first | MIT |
 | **RMBG 2.0** | Product | ~514 MB | Ecommerce / product shots | **CC BY-NC 4.0** (non-commercial only) |
 | **MODNet** | Lightweight | ~13 MB | Portraits / legacy use | Apache 2.0 |
 
@@ -107,7 +108,7 @@ DropBG ships with **Apple Vision** as the zero-download default. You can add spe
 ### Notes
 
 - **Auto-download**: most models can be downloaded directly from Settings; download progress is shown in the model picker.
-- **Manual download** is required for RMBG 2.0, BiRefNet Matting, BiRefNet HR-matting, and BiRefNet Dynamic. See each model's HuggingFace page (linked in Settings) — accept the terms, download `model_fp16.onnx`, rename per the prompt in Settings, place in your model folder.
+- **Manual download** is required for RMBG 2.0, BiRefNet Matting, BiRefNet HR-matting, BiRefNet Dynamic, and BiRefNet Dynamic Matting. The BiRefNet matting/dynamic variants have no pre-built ONNX — export them with the `scripts/export_*_onnx.py` script named in Settings, then copy the `.onnx` into your model folder. RMBG 2.0 is a gated download: accept the terms on its HuggingFace page (linked in Settings), download `model_fp16.onnx`, and rename per the prompt.
 - **BiRefNet HR-matting** is trained at 2048×2048 and uses ~4× more memory than the 1024-input models. Close other apps before running heavy batches on machines with under 16 GB RAM.
 - You can download multiple models and switch between them without restarting.
 - **Two-stage edge refinement**: when enabled, a coarse BiRefNet mask is refined by ViTMatte Small (~28 MB) for cleaner hair and fur boundaries.

@@ -200,6 +200,12 @@ export async function refineResult(base64Data: string, originalPath: string): Pr
   return invoke<string>("refine_result", { base64Data, originalPath });
 }
 
+/** Two-stage tiled HR edge refinement (BiRefNet HR-matting on the soft-alpha band). */
+export async function refineEdgesHr(base64Data: string, originalPath: string): Promise<string> {
+  const invoke = await getInvoke();
+  return invoke<string>("refine_edges_hr", { base64Data, originalPath });
+}
+
 export async function saveImage(base64Data: string, savePath: string): Promise<void> {
   const invoke = await getInvoke();
   return invoke<void>("save_image", { base64Data, savePath });
@@ -289,4 +295,66 @@ export async function removeBackgroundBatchCloud(
 ): Promise<string[]> {
   const invoke = await getInvoke();
   return invoke<string[]>("remove_background_batch_cloud", { imagePaths, outputDir });
+}
+
+// ===== Inference backend benchmark (Phase 11.2) =====
+
+export interface BackendInfo {
+  device: string;
+  variant: string;
+  benchmarked: boolean;
+  chosen: string; // backend key, e.g. "coreml-ep" | "cpu"
+  chosen_label: string;
+}
+
+export interface BackendTiming {
+  backend: string;
+  label: string;
+  median_ms: number;
+  ok: boolean;
+  diverged: boolean;
+  error: string | null;
+}
+
+export interface BenchmarkReport {
+  variant: string;
+  device: string;
+  input_size: number;
+  chosen: string;
+  timings: BackendTiming[];
+}
+
+export async function getBackendInfo(): Promise<BackendInfo> {
+  const invoke = await getInvoke();
+  return invoke<BackendInfo>("get_backend_info");
+}
+
+export async function benchmarkInferenceBackends(): Promise<BenchmarkReport> {
+  const invoke = await getInvoke();
+  return invoke<BenchmarkReport>("benchmark_inference_backends");
+}
+
+// ===== Processing modes (Phase 11.3) =====
+
+export interface ProcessingModeOption {
+  key: string;
+  label: string;
+  description: string;
+  variant: string | null;
+  uses_apple_vision: boolean;
+}
+
+export interface ProcessingModeInfo {
+  current: string;
+  modes: ProcessingModeOption[];
+}
+
+export async function getProcessingMode(): Promise<ProcessingModeInfo> {
+  const invoke = await getInvoke();
+  return invoke<ProcessingModeInfo>("get_processing_mode");
+}
+
+export async function setProcessingMode(mode: string): Promise<void> {
+  const invoke = await getInvoke();
+  return invoke<void>("set_processing_mode", { mode });
 }

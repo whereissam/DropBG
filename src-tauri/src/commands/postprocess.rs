@@ -220,3 +220,60 @@ pub async fn refine_result(
     .await
     .map_err(|e| e.to_string())?
 }
+
+// ===== HR edge refinement (Phase 11.4) =====
+
+/// Two-stage, tiled HR edge refinement: re-runs BiRefNet HR-matting on just the
+/// uncertain soft-alpha band of an existing cutout and feather-blends it in.
+/// Requires the HR-matting model to be downloaded.
+#[tauri::command]
+pub async fn refine_edges_hr(
+    app: AppHandle,
+    base64_data: String,
+    original_path: String,
+) -> Result<String, String> {
+    let _ = app.emit(
+        "process-progress",
+        ProcessProgress {
+            step: "Preparing HR edge refinement...".to_string(),
+            percent: 5.0,
+        },
+    );
+
+    let app_handle = app.clone();
+
+    tokio::task::spawn_blocking(move || {
+        let coarse_bytes = base64::engine::general_purpose::STANDARD
+            .decode(&base64_data)
+            .map_err(|e| format!("Invalid base64: {e}"))?;
+        let coarse_img = image::load_from_memory(&coarse_bytes)
+            .map_err(|e| format!("Failed to decode coarse image: {e}"))?;
+        let coarse_rgba = coarse_img.to_rgba8();
+
+        let original = image::open(&original_path)
+            .map_err(|e| format!("Failed to open original: {e}"))?;
+
+        let refined = crate::inference::hr_refine::refine_edges_hr(
+            &original,
+            &coarse_rgba,
+            |percent, step| {
+                let _ = app_handle.emit(
+                    "process-progress",
+                    ProcessProgress {
+                        step: step.to_string(),
+                        percent,
+                    },
+                );
+            },
+        )?;
+
+        let mut buf = Vec::new();
+        refined
+            .write_to(&mut std::io::Cursor::new(&mut buf), image::ImageFormat::Png)
+            .map_err(|e| format!("Failed to encode PNG: {e}"))?;
+
+        Ok(base64::engine::general_purpose::STANDARD.encode(&buf))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
