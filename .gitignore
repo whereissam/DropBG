@@ -30,3 +30,6 @@ Thumbs.db
 
 # Claude
 .claude/settings.local.json
+
+# Private benchmark set (see docs/BENCHMARK.md) — images stay local
+/bench/

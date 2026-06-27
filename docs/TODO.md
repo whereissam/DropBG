@@ -278,14 +278,18 @@ so the default pipeline is untouched).
 Background removal isn't just an alpha mask — hair shot on blue/green/dark
 backgrounds leaves colored fringes when composited onto white.
 
-- [ ] Pipeline: segmentation → alpha refinement → foreground color estimation → edge decontamination → compositing
-- [ ] Add optional **16-bit alpha PNG export** (8-bit alpha crushes fine hair / glass / smoke detail that good inference produces)
+Shipped as `imaging/decontaminate.rs` + the `decontaminate_result` command, exposed
+as an opt-in **"Decontaminate"** Toolbar action and a **Save → 16-bit** option.
+
+- [x] Foreground color estimation + edge decontamination: alpha²-weighted color diffusion floods true foreground color from the opaque core into the soft band, suppressing the `(1−α)·B` background contribution (the green/blue hair fringe). Alpha is left untouched; only edge-band color changes. Unit-tested (4 tests, incl. "edge pulled toward foreground").
+- [x] Optional **16-bit PNG export**: the decontaminated foreground color is encoded straight from the floating-point estimate (no re-quantization banding), saved via the existing raw-bytes `save_image` path (Save → 16-bit).
+- [ ] **Follow-up:** alpha precision is still bounded by the 8-bit inference mask (16-bit alpha gains full benefit only once the f32 mask is threaded end-to-end — overlaps 11.2b). Also consider auto-running decontamination as the final step of Best Edges / Product modes (11.3 hook).
 
 ### 11.6 — Internal benchmark set + copy fixes
 
-- [ ] Build a private 50–100 image test set: portraits, hair, pets, products, glass, shadows, thin lines, low-contrast backgrounds (no trustworthy public benchmark answers "best model for the DropBG/macOS pipeline")
-- [ ] Reword BEN2 copy from "Hair, fur, difficult boundaries" → "Experimental alternative for difficult boundaries; benchmark against BiRefNet Matting before use" (README + landing + USAGE + `downloader.rs` description). Public MIT release is the base model; best refinement path / commercial terms are less clean than BiRefNet
-- [ ] Keep DiffDIS / PDFNet / depth-assisted DIS in a benchmark backlog only — not in the model picker
+- [x] Benchmark set **scaffold + protocol**: `docs/BENCHMARK.md` (categories + targets, eval protocol, scoring on white *and* mid-gray, what results decide) and a `bench/` directory (8 category folders, `manifest.csv` + `results.csv` templates, `.gitignore` that keeps structure but excludes the private images). Populating it with real images is a manual data-collection task — can't be code-generated.
+- [x] Reworded BEN2 copy to "Experimental alternative for difficult boundaries — benchmark against BiRefNet Matting first" across all four surfaces: README + USAGE (done in 11.1) + landing page (`index.astro`, both mobile + desktop) + `downloader.rs` description
+- [x] DiffDIS / PDFNet / depth-assisted DIS (+ SAM 3) documented in a **Research Backlog** section of `MODEL_RESEARCH.md` with per-model rationale; confirmed none are in the `ModelVariant` picker
 
 ## Stretch Goals
 

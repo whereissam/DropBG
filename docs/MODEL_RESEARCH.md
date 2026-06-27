@@ -92,6 +92,26 @@ Based on this research, we added to DropBG:
 - **Two-stage pipeline** — use BiRefNet for coarse mask → ViTMatte for refined alpha on edges
 - **SAM 3 integration** — text-prompted object extraction ("remove the cat") as a differentiated feature
 
+## Research Backlog (NOT shipped)
+
+Reviewed during the Phase 11 quality pass (June 2026). These are deliberately
+**kept out of the model picker** — they are research-grade: too heavy, the
+ONNX/Core ML port risk is high, and the alpha they produce isn't reliably
+compositing-grade. The conclusion of the pass was that the curated lineup is
+*not* outdated — no MIT-licensed, easily-ONNX-able model has emerged that
+broadly beats BiRefNet HR-matting — so product wins come from the inference +
+post-processing layer (Phase 11.2–11.5), not from shipping a 12th model.
+
+Evaluate any of these from the **upstream demo first**; only port one if the
+internal benchmark ([`BENCHMARK.md`](BENCHMARK.md)) shows a clear category win.
+
+| Candidate | Why interesting | Why backlog-only |
+|---|---|---|
+| **DiffDIS** | Diffusion-based dichotomous segmentation, very crisp boundaries | Diffusion backbone is heavy and slow; multi-step sampling is a poor fit for a snappy local app; ONNX/Core ML export is non-trivial |
+| **PDFNet** | Patch-DCT frequency detail, strong on thin structures | No clean ONNX path; architecture-specific ops; unproven on our FP16/Core ML route |
+| **Depth-assisted DIS** | Uses a depth prior to separate subject from background | Adds a second (depth) model + fusion stage — large footprint, marginal gain over BiRefNet matting for our categories |
+| **SAM 3** (Meta) | Open-vocabulary, text-prompted extraction | Not a background remover — needs prompts, outputs binary masks not alpha; would need a separate matting stage. Tracked as a *differentiated feature* idea, not a lineup model |
+
 ## ONNX Sources
 
 | Model | HuggingFace Repo | fp16 URL |
