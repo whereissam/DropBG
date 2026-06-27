@@ -21,17 +21,26 @@ import {
   setModelVariant,
   setOutputDir,
   deleteModel,
+  getBackendInfo,
+  benchmarkInferenceBackends,
+  getProcessingMode,
+  setProcessingMode,
   type ModelInfo,
   type UpscaleModelInfo,
   type RefineModelInfo,
   type CloudConfig,
   type CloudUsage,
+  type BackendInfo,
+  type BenchmarkReport,
+  type ProcessingModeInfo,
 } from "../tauri";
 
 interface Props {
   onClose: () => void;
   onModelDeleted: () => void;
   onToast: (msg: string, type: "success" | "error" | "info") => void;
+  /** Notifies the app a processing mode was chosen, so it can route Fast → Apple Vision. */
+  onModeChanged?: (mode: string) => void;
 }
 
 function formatBytes(bytes: number): string {
@@ -59,7 +68,7 @@ const CLOUD_PRICING_URLS: Record<string, string> = {
   Photoroom: "https://docs.photoroom.com/getting-started/pricing",
 };
 
-export default function Settings({ onClose, onModelDeleted, onToast }: Props) {
+export default function Settings({ onClose, onModelDeleted, onToast, onModeChanged }: Props) {
   const [info, setInfo] = useState<ModelInfo | null>(null);
   const [outputDir, setOutputDirState] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
@@ -75,6 +84,12 @@ export default function Settings({ onClose, onModelDeleted, onToast }: Props) {
   const [cloudUsage, setCloudUsage] = useState<CloudUsage | null>(null);
   const [apiKeyInput, setApiKeyInput] = useState("");
   const [apiKeySaved, setApiKeySaved] = useState(false);
+  const [backendInfo, setBackendInfo] = useState<BackendInfo | null>(null);
+  const [benchmarking, setBenchmarking] = useState(false);
+  const [benchReport, setBenchReport] = useState<BenchmarkReport | null>(null);
+  const [modeInfo, setModeInfo] = useState<ProcessingModeInfo | null>(null);
+  const [switchingMode, setSwitchingMode] = useState(false);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
 
   useEffect(() => {
     loadInfo();
@@ -84,7 +99,53 @@ export default function Settings({ onClose, onModelDeleted, onToast }: Props) {
     getUpscaleModelInfo().then(setUpscaleInfo).catch(() => {});
     getCloudConfig().then(setCloudConfig).catch(() => {});
     getCloudUsage().then(setCloudUsage).catch(() => {});
+    getBackendInfo().then(setBackendInfo).catch(() => {});
+    getProcessingMode()
+      .then((m) => {
+        setModeInfo(m);
+        // If the saved choice was a raw model, open Advanced so it's visible.
+        if (m.current === "Advanced") setAdvancedOpen(true);
+      })
+      .catch(() => {});
   }, []);
+
+  async function handleSelectMode(key: string) {
+    if (switchingMode || modeInfo?.current === key) return;
+    setSwitchingMode(true);
+    try {
+      await setProcessingMode(key);
+      setModeInfo((prev) => (prev ? { ...prev, current: key } : prev));
+      await loadInfo();
+      await getBackendInfo().then(setBackendInfo).catch(() => {});
+      onModeChanged?.(key);
+      const picked = modeInfo?.modes.find((m) => m.key === key);
+      onToast(`Switched to ${picked?.label ?? key} mode.`, "info");
+    } catch (e: any) {
+      onToast("Failed to switch mode: " + e.toString(), "error");
+    } finally {
+      setSwitchingMode(false);
+    }
+  }
+
+  async function handleBenchmark() {
+    setBenchmarking(true);
+    setBenchReport(null);
+    try {
+      const report = await benchmarkInferenceBackends();
+      setBenchReport(report);
+      const winner = report.timings.find((t) => t.backend === report.chosen);
+      onToast(
+        `Backend benchmark complete — using ${winner?.label ?? report.chosen}` +
+          (winner ? ` (${winner.median_ms.toFixed(0)} ms/run)` : ""),
+        "success",
+      );
+      await getBackendInfo().then(setBackendInfo).catch(() => {});
+    } catch (e: any) {
+      onToast(e.toString(), "error");
+    } finally {
+      setBenchmarking(false);
+    }
+  }
 
   async function loadInfo() {
     try {
@@ -266,7 +327,38 @@ export default function Settings({ onClose, onModelDeleted, onToast }: Props) {
                 </div>
               </div>
 
-              {/* Model variant switcher */}
+              {/* Mode selector — the primary picker */}
+              {modeInfo && (
+                <div className="mode-selector">
+                  {modeInfo.modes.map((m) => {
+                    const active = modeInfo.current === m.key;
+                    return (
+                      <button
+                        key={m.key}
+                        className={`mode-card ${active ? "active" : ""}`}
+                        onClick={() => handleSelectMode(m.key)}
+                        disabled={switchingMode}
+                      >
+                        <span className="mode-card-label">{m.label}</span>
+                        <span className="mode-card-desc">{m.description}</span>
+                        {active && m.uses_apple_vision && (
+                          <span className="mode-card-cost">On-device · no download</span>
+                        )}
+                        {active && !m.uses_apple_vision && backendInfo?.benchmarked && (
+                          <span className="mode-card-cost">Backend: {backendInfo.chosen_label}</span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Advanced — raw model selection */}
+              <button className="advanced-toggle" onClick={() => setAdvancedOpen((v) => !v)}>
+                {advancedOpen ? "▾" : "▸"} Advanced — choose a specific model
+              </button>
+
+              {advancedOpen && (
               <div className="model-switcher">
                 {(() => {
                   const lic = licenseForModel(info.name);
@@ -322,6 +414,7 @@ export default function Settings({ onClose, onModelDeleted, onToast }: Props) {
                   );
                 })}
               </div>
+              )}
 
               {/* Auto-routing toggle */}
               <div className="auto-routing-toggle">
@@ -356,7 +449,7 @@ export default function Settings({ onClose, onModelDeleted, onToast }: Props) {
 
           {info && !info.exists && info.manual_download && info.manual_download_url && (
             <div className="manual-download-hint">
-              {(info.variant === "Matting" || info.variant === "Dynamic" || info.variant === "HRMatting") ? (
+              {(info.variant === "Matting" || info.variant === "Dynamic" || info.variant === "DynamicMatting" || info.variant === "HRMatting") ? (
                 <>
                   <p>This model requires ONNX export (no pre-built ONNX available):</p>
                   <ol>
@@ -367,6 +460,8 @@ export default function Settings({ onClose, onModelDeleted, onToast }: Props) {
                           ? "matting"
                           : info.variant === "Dynamic"
                           ? "dynamic"
+                          : info.variant === "DynamicMatting"
+                          ? "dynamic_matting"
                           : "hr_matting"
                       }_onnx.py</code>
                     </li>
@@ -439,6 +534,61 @@ export default function Settings({ onClose, onModelDeleted, onToast }: Props) {
                 {confirming ? "Click again to confirm" : "Delete Model"}
               </button>
             )}
+          </div>
+        </div>
+
+        {/* ===== Inference Backend Section ===== */}
+        <div className="settings-section">
+          <h3>Inference Backend</h3>
+          <p className="settings-hint">
+            DropBG can run local models on the Apple Neural Engine / GPU (Core ML) or on the
+            CPU. Core ML isn't always faster — it depends on the model and your Mac. Benchmark
+            to pick the fastest backend that produces a matching result, just for this machine.
+          </p>
+          <div className="settings-info">
+            <div className="si-row">
+              <span className="si-label">This Mac</span>
+              <span className="si-value">{backendInfo?.device ?? "…"}</span>
+            </div>
+            <div className="si-row">
+              <span className="si-label">Current backend</span>
+              <span className="si-value">
+                {backendInfo
+                  ? `${backendInfo.chosen_label}${backendInfo.benchmarked ? "" : " (default — not benchmarked)"}`
+                  : "…"}
+              </span>
+            </div>
+          </div>
+
+          {benchReport && (
+            <div className="settings-info" style={{ marginTop: "0.5rem" }}>
+              {benchReport.timings.map((t) => (
+                <div className="si-row" key={t.backend}>
+                  <span className="si-label">
+                    {t.label}
+                    {t.backend === benchReport.chosen && " ✓"}
+                  </span>
+                  <span className={`si-value ${t.ok && !t.diverged ? "" : "text-yellow"}`}>
+                    {!t.ok
+                      ? "failed"
+                      : t.diverged
+                      ? "output diverged — skipped"
+                      : `${t.median_ms.toFixed(0)} ms/run`}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="settings-actions">
+            <button
+              className="sa-btn sa-btn-accent"
+              onClick={handleBenchmark}
+              disabled={benchmarking || !info?.exists}
+              title={info?.exists ? "" : "Download the selected model first"}
+            >
+              {benchmarking ? "Benchmarking…" : "Benchmark Backends"}
+            </button>
           </div>
         </div>
 

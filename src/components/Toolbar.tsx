@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { saveImage, autoCrop, upscaleImage, refineResult, getUpscaleModelInfo, getRefineModelInfo, getOutputDir, setOutputDir } from "../tauri";
+import { saveImage, autoCrop, upscaleImage, refineResult, refineEdgesHr, getUpscaleModelInfo, getRefineModelInfo, getOutputDir, setOutputDir } from "../tauri";
 
 interface Props {
   originalPath: string | null;
@@ -13,6 +13,7 @@ export default function Toolbar({ originalPath, resultBase64, onReset, onUpdateR
   const [cropping, setCropping] = useState(false);
   const [upscaling, setUpscaling] = useState(false);
   const [refining, setRefining] = useState(false);
+  const [hrRefining, setHrRefining] = useState(false);
   const [showScaleMenu, setShowScaleMenu] = useState(false);
 
   async function handleSave() {
@@ -110,6 +111,21 @@ export default function Toolbar({ originalPath, resultBase64, onReset, onUpdateR
     }
   }
 
+  async function handleRefineHr() {
+    if (!onUpdateResult || !originalPath) return;
+    setHrRefining(true);
+    try {
+      const refined = await refineEdgesHr(resultBase64, originalPath);
+      onUpdateResult(refined);
+      onToast?.("Edges refined with HR-matting!", "success");
+    } catch (e: any) {
+      console.error("HR refine error:", e);
+      onToast?.(e.toString(), "error");
+    } finally {
+      setHrRefining(false);
+    }
+  }
+
   function getDefaultName() {
     if (!originalPath) return "output_nobg.png";
     const parts = originalPath.split("/");
@@ -135,11 +151,23 @@ export default function Toolbar({ originalPath, resultBase64, onReset, onUpdateR
         </svg>
         {cropping ? "Cropping..." : "Auto-Crop"}
       </button>
-      <button className="btn btn-secondary" onClick={handleRefine} disabled={refining || upscaling || cropping || !originalPath}>
+      <button className="btn btn-secondary" onClick={handleRefine} disabled={refining || hrRefining || upscaling || cropping || !originalPath}>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
         </svg>
         {refining ? "Refining..." : "Refine"}
+      </button>
+      <button
+        className="btn btn-secondary"
+        onClick={handleRefineHr}
+        disabled={refining || hrRefining || upscaling || cropping || !originalPath}
+        title="Re-run HR-matting on just the soft edges (needs BiRefNet HR-matting downloaded)"
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2" />
+          <circle cx="12" cy="12" r="3" />
+        </svg>
+        {hrRefining ? "Refining edges..." : "HR Edges"}
       </button>
       <div className="upscale-wrapper">
         <button
