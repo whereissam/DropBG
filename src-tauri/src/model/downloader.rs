@@ -17,6 +17,7 @@ pub enum ModelVariant {
     General,
     Matting,
     Dynamic,
+    DynamicMatting,
     HRMatting,
 }
 
@@ -36,6 +37,7 @@ impl ModelVariant {
             ModelVariant::Matting,
             ModelVariant::HRMatting,
             ModelVariant::Dynamic,
+            ModelVariant::DynamicMatting,
             ModelVariant::BEN2,
             ModelVariant::RMBG2,
             ModelVariant::InSPyReNet,
@@ -51,6 +53,7 @@ impl ModelVariant {
             ModelVariant::General => "BiRefNet General",
             ModelVariant::Matting => "BiRefNet Matting",
             ModelVariant::Dynamic => "BiRefNet Dynamic",
+            ModelVariant::DynamicMatting => "BiRefNet Dynamic Matting",
             ModelVariant::HRMatting => "BiRefNet HR-matting",
             ModelVariant::BEN2 => "BEN2",
             ModelVariant::RMBG2 => "RMBG 2.0",
@@ -67,6 +70,7 @@ impl ModelVariant {
             ModelVariant::General => "birefnet_general_fp16.onnx",
             ModelVariant::Matting => "birefnet_lite_matting_fp16.onnx",
             ModelVariant::Dynamic => "birefnet_dynamic_fp16.onnx",
+            ModelVariant::DynamicMatting => "birefnet_dynamic_matting_fp16.onnx",
             ModelVariant::HRMatting => "birefnet_hr_matting_fp16.onnx",
             ModelVariant::BEN2 => "ben2_fp16.onnx",
             ModelVariant::RMBG2 => "rmbg2_fp16.onnx",
@@ -85,6 +89,8 @@ impl ModelVariant {
             ModelVariant::Matting => "",
             // Dynamic has no pre-built ONNX — must be exported via scripts/export_dynamic_onnx.py
             ModelVariant::Dynamic => "",
+            // Dynamic Matting has no pre-built ONNX — must be exported via scripts/export_dynamic_matting_onnx.py
+            ModelVariant::DynamicMatting => "",
             // HR-matting has no pre-built ONNX — must be exported via scripts/export_hr_matting_onnx.py
             ModelVariant::HRMatting => "",
             ModelVariant::BEN2 => "https://huggingface.co/onnx-community/BEN2-ONNX/resolve/main/onnx/model_fp16.onnx",
@@ -100,6 +106,9 @@ impl ModelVariant {
             ModelVariant::RMBG2 => Some("https://huggingface.co/briaai/RMBG-2.0/blob/main/onnx/model_fp16.onnx"),
             ModelVariant::Matting => Some("https://huggingface.co/ZhengPeng7/BiRefNet_lite-matting"),
             ModelVariant::Dynamic => Some("https://huggingface.co/ZhengPeng7/BiRefNet_dynamic"),
+            ModelVariant::DynamicMatting => {
+                Some("https://huggingface.co/ZhengPeng7/BiRefNet_dynamic-matting")
+            }
             ModelVariant::HRMatting => Some("https://huggingface.co/ZhengPeng7/BiRefNet_HR-matting"),
             ModelVariant::InSPyReNet => None,
             _ => None,
@@ -113,6 +122,7 @@ impl ModelVariant {
             ModelVariant::RMBG2
                 | ModelVariant::Matting
                 | ModelVariant::Dynamic
+                | ModelVariant::DynamicMatting
                 | ModelVariant::HRMatting
         )
     }
@@ -125,6 +135,7 @@ impl ModelVariant {
             ModelVariant::General => "~490 MB",
             ModelVariant::Matting => "~214 MB",
             ModelVariant::Dynamic => "~490 MB",
+            ModelVariant::DynamicMatting => "~490 MB",
             ModelVariant::HRMatting => "~900 MB",
             ModelVariant::BEN2 => "~219 MB",
             ModelVariant::RMBG2 => "~514 MB",
@@ -141,6 +152,7 @@ impl ModelVariant {
             ModelVariant::General => "Newer training (epoch 244), improved general quality",
             ModelVariant::Matting => "True alpha mattes for hair/fur/glass (export required)",
             ModelVariant::Dynamic => "Native resolution 256-2304px, no resize artifacts (export required)",
+            ModelVariant::DynamicMatting => "Native-resolution alpha mattes — finest hair/fur/edge detail at the image's own size (export required)",
             ModelVariant::HRMatting => "High-resolution alpha mattes at 2048×2048 — best for large product / portrait shots (export required)",
             ModelVariant::BEN2 => "Best on hair & fine edges, handles complex scenes",
             ModelVariant::RMBG2 => "BRIA's enhanced BiRefNet, excellent quality (manual download)",
@@ -155,6 +167,7 @@ impl ModelVariant {
             ModelVariant::MODNet => 512,
             ModelVariant::InSPyReNet => 1024,
             ModelVariant::Dynamic => 0, // native resolution
+            ModelVariant::DynamicMatting => 0, // native resolution
             ModelVariant::HRMatting => 2048, // trained at 2048×2048
             _ => 1024,
         }
@@ -163,13 +176,16 @@ impl ModelVariant {
     /// Whether this model supports dynamic (native) resolution input.
     #[allow(dead_code)]
     pub fn is_dynamic(&self) -> bool {
-        matches!(self, ModelVariant::Dynamic)
+        matches!(self, ModelVariant::Dynamic | ModelVariant::DynamicMatting)
     }
 
     /// Whether this variant outputs true alpha mattes (not binary masks).
     #[allow(dead_code)]
     pub fn is_matting_model(&self) -> bool {
-        matches!(self, ModelVariant::Matting | ModelVariant::HRMatting)
+        matches!(
+            self,
+            ModelVariant::Matting | ModelVariant::DynamicMatting | ModelVariant::HRMatting
+        )
     }
 
     /// Whether this variant is recommended for portrait/people images.
@@ -186,6 +202,7 @@ impl ModelVariant {
             ModelVariant::General => "General",
             ModelVariant::Matting => "Matting",
             ModelVariant::Dynamic => "Dynamic",
+            ModelVariant::DynamicMatting => "DynamicMatting",
             ModelVariant::HRMatting => "HRMatting",
             ModelVariant::BEN2 => "BEN2",
             ModelVariant::RMBG2 => "RMBG2",
@@ -202,6 +219,7 @@ impl ModelVariant {
             "General" => Some(ModelVariant::General),
             "Matting" => Some(ModelVariant::Matting),
             "Dynamic" => Some(ModelVariant::Dynamic),
+            "DynamicMatting" => Some(ModelVariant::DynamicMatting),
             "HRMatting" => Some(ModelVariant::HRMatting),
             "BEN2" => Some(ModelVariant::BEN2),
             "RMBG2" => Some(ModelVariant::RMBG2),
@@ -209,6 +227,100 @@ impl ModelVariant {
             "MODNet" => Some(ModelVariant::MODNet),
             _ => None,
         }
+    }
+}
+
+// ===== Processing Mode (Phase 11.3) =====
+
+/// A user-facing processing mode. Instead of leading the UI with ~11 technical
+/// model names, the picker surfaces four intent-based modes; the raw model list
+/// stays available under "Advanced". Each mode maps to an underlying backend:
+/// either Apple Vision (Fast) or a specific `ModelVariant`.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub enum ProcessingMode {
+    Fast,
+    Balanced,
+    BestEdges,
+    Product,
+    /// Raw model selection — use `model_variant` as-is.
+    Advanced,
+}
+
+impl Default for ProcessingMode {
+    // Default to Advanced so existing configs (which already carry a
+    // `model_variant`) keep their current behavior; modes are opt-in via the UI.
+    fn default() -> Self {
+        ProcessingMode::Advanced
+    }
+}
+
+impl ProcessingMode {
+    pub fn key(&self) -> &str {
+        match self {
+            ProcessingMode::Fast => "Fast",
+            ProcessingMode::Balanced => "Balanced",
+            ProcessingMode::BestEdges => "BestEdges",
+            ProcessingMode::Product => "Product",
+            ProcessingMode::Advanced => "Advanced",
+        }
+    }
+
+    pub fn from_key(key: &str) -> Option<ProcessingMode> {
+        match key {
+            "Fast" => Some(ProcessingMode::Fast),
+            "Balanced" => Some(ProcessingMode::Balanced),
+            "BestEdges" => Some(ProcessingMode::BestEdges),
+            "Product" => Some(ProcessingMode::Product),
+            "Advanced" => Some(ProcessingMode::Advanced),
+            _ => None,
+        }
+    }
+
+    pub fn label(&self) -> &str {
+        match self {
+            ProcessingMode::Fast => "Fast",
+            ProcessingMode::Balanced => "Balanced",
+            ProcessingMode::BestEdges => "Best Edges",
+            ProcessingMode::Product => "Product",
+            ProcessingMode::Advanced => "Advanced",
+        }
+    }
+
+    pub fn description(&self) -> &str {
+        match self {
+            ProcessingMode::Fast => "Instant, on-device — Apple Vision (no download)",
+            ProcessingMode::Balanced => "Native-resolution alpha mattes — the everyday default",
+            ProcessingMode::BestEdges => "Highest-detail hair/fur/glass edges (slower, more memory)",
+            ProcessingMode::Product => "Clean cutouts for ecommerce / product shots",
+            ProcessingMode::Advanced => "Pick a specific model below",
+        }
+    }
+
+    /// The model variant this mode maps to. `None` for Fast (Apple Vision) and
+    /// Advanced (keep whatever `model_variant` is already selected).
+    pub fn variant(&self) -> Option<ModelVariant> {
+        match self {
+            ProcessingMode::Fast => None,
+            ProcessingMode::Balanced => Some(ModelVariant::DynamicMatting),
+            ProcessingMode::BestEdges => Some(ModelVariant::HRMatting),
+            ProcessingMode::Product => Some(ModelVariant::Dynamic),
+            ProcessingMode::Advanced => None,
+        }
+    }
+
+    /// Whether this mode runs through Apple Vision rather than an ONNX model.
+    pub fn uses_apple_vision(&self) -> bool {
+        matches!(self, ProcessingMode::Fast)
+    }
+
+    /// The four intent-based modes shown as primary choices (Advanced is separate).
+    pub fn user_modes() -> &'static [ProcessingMode] {
+        &[
+            ProcessingMode::Fast,
+            ProcessingMode::Balanced,
+            ProcessingMode::BestEdges,
+            ProcessingMode::Product,
+        ]
     }
 }
 
@@ -444,6 +556,15 @@ pub struct AppConfig {
     /// Which fal.ai endpoint to use when CloudProvider::FalAI is selected
     #[serde(default)]
     pub fal_ai_endpoint: FalAIEndpoint,
+    /// Per-machine benchmark winners, keyed by "{variant}:{device}" → backend
+    /// key (e.g. "coreml-ep" / "cpu"). Populated by the inference-backend
+    /// benchmark; consulted when building an ORT session.
+    #[serde(default)]
+    pub backend_benchmarks: std::collections::HashMap<String, String>,
+    /// User-facing processing mode (Fast / Balanced / Best Edges / Product /
+    /// Advanced). Drives the mapping to Apple Vision or a specific model.
+    #[serde(default)]
+    pub processing_mode: ProcessingMode,
 }
 
 impl AppConfig {
@@ -484,6 +605,8 @@ impl Default for AppConfig {
             cloud_api_key: String::new(),
             cloud_api_keys: std::collections::HashMap::new(),
             fal_ai_endpoint: FalAIEndpoint::default(),
+            backend_benchmarks: std::collections::HashMap::new(),
+            processing_mode: ProcessingMode::default(),
         }
     }
 }

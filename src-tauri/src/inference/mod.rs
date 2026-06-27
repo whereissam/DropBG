@@ -1,7 +1,9 @@
 pub mod apple_vision;
+pub mod backend;
 pub mod cloud;
 pub mod cloud_usage;
 pub mod face_detect;
+pub mod hr_refine;
 pub mod postprocess;
 pub mod preprocess;
 pub mod refine;
