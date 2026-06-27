@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { saveImage, autoCrop, upscaleImage, refineResult, refineEdgesHr, getUpscaleModelInfo, getRefineModelInfo, getOutputDir, setOutputDir } from "../tauri";
+import { saveImage, autoCrop, upscaleImage, refineResult, refineEdgesHr, decontaminateResult, getUpscaleModelInfo, getRefineModelInfo, getOutputDir, setOutputDir } from "../tauri";
 
 interface Props {
   originalPath: string | null;
@@ -14,9 +14,11 @@ export default function Toolbar({ originalPath, resultBase64, onReset, onUpdateR
   const [upscaling, setUpscaling] = useState(false);
   const [refining, setRefining] = useState(false);
   const [hrRefining, setHrRefining] = useState(false);
+  const [decontaminating, setDecontaminating] = useState(false);
   const [showScaleMenu, setShowScaleMenu] = useState(false);
+  const [showSaveMenu, setShowSaveMenu] = useState(false);
 
-  async function handleSave() {
+  async function doSave(dataB64: string) {
     try {
       const { save } = await import("@tauri-apps/plugin-dialog");
       const outputDir = await getOutputDir().catch(() => null);
@@ -28,7 +30,7 @@ export default function Toolbar({ originalPath, resultBase64, onReset, onUpdateR
         filters: [{ name: "PNG Image", extensions: ["png"] }],
       });
       if (path) {
-        await saveImage(resultBase64, path);
+        await saveImage(dataB64, path);
         const lastSlash = path.lastIndexOf("/");
         if (lastSlash > 0) {
           const chosenDir = path.substring(0, lastSlash);
@@ -39,6 +41,37 @@ export default function Toolbar({ originalPath, resultBase64, onReset, onUpdateR
       }
     } catch (e) {
       console.error("Save error:", e);
+    }
+  }
+
+  async function handleSave() {
+    setShowSaveMenu(false);
+    await doSave(resultBase64);
+  }
+
+  async function handleSave16Bit() {
+    setShowSaveMenu(false);
+    try {
+      // 16-bit export carries the floating-point decontaminated color (no banding).
+      const data = await decontaminateResult(resultBase64, true);
+      await doSave(data);
+    } catch (e: any) {
+      onToast?.("16-bit export failed: " + e.toString(), "error");
+    }
+  }
+
+  async function handleDecontaminate() {
+    if (!onUpdateResult) return;
+    setDecontaminating(true);
+    try {
+      const cleaned = await decontaminateResult(resultBase64, false);
+      onUpdateResult(cleaned);
+      onToast?.("Edge color decontaminated!", "success");
+    } catch (e: any) {
+      console.error("Decontaminate error:", e);
+      onToast?.("Decontaminate failed: " + e.toString(), "error");
+    } finally {
+      setDecontaminating(false);
     }
   }
 
@@ -169,6 +202,19 @@ export default function Toolbar({ originalPath, resultBase64, onReset, onUpdateR
         </svg>
         {hrRefining ? "Refining edges..." : "HR Edges"}
       </button>
+      <button
+        className="btn btn-secondary"
+        onClick={handleDecontaminate}
+        disabled={refining || hrRefining || decontaminating || upscaling || cropping || !onUpdateResult}
+        title="Remove colored edge fringe by estimating the true foreground color"
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M19 11l-7 7-7-7" />
+          <path d="M12 2v16" />
+          <circle cx="12" cy="20" r="1.5" />
+        </svg>
+        {decontaminating ? "Cleaning..." : "Decontaminate"}
+      </button>
       <div className="upscale-wrapper">
         <button
           className="btn btn-secondary"
@@ -190,14 +236,22 @@ export default function Toolbar({ originalPath, resultBase64, onReset, onUpdateR
           </div>
         )}
       </div>
-      <button className="btn btn-primary" onClick={handleSave}>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-          <polyline points="7 10 12 15 17 10" />
-          <line x1="12" y1="15" x2="12" y2="3" />
-        </svg>
-        Save PNG
-      </button>
+      <div className="upscale-wrapper">
+        <button className="btn btn-primary" onClick={() => setShowSaveMenu((v) => !v)}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+            <polyline points="7 10 12 15 17 10" />
+            <line x1="12" y1="15" x2="12" y2="3" />
+          </svg>
+          Save PNG
+        </button>
+        {showSaveMenu && (
+          <div className="scale-menu">
+            <button className="scale-option" onClick={handleSave}>8-bit</button>
+            <button className="scale-option" onClick={handleSave16Bit}>16-bit</button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

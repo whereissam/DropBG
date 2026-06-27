@@ -129,6 +129,14 @@ If you use DropBG for client work or ecommerce, check the license of the model y
 
 Click **Auto-Crop** in the toolbar to trim transparent edges from the result. Adds 4px padding by default.
 
+### HR Edges
+
+Click **HR Edges** to re-run BiRefNet HR-matting on just the soft edges (hair, fur, glass) and feather-blend the high-detail alpha back in — the rest of the cutout keeps the original mask, so it stays fast. Requires the HR-matting model (add it in **Settings → Advanced**).
+
+### Decontaminate
+
+Click **Decontaminate** to remove colored edge fringe. Hair shot on a colored backdrop leaves a green/blue halo when composited onto a new background; this estimates the true foreground color along the soft edge and replaces the contaminated pixels. Pairs well with **Save → 16-bit**, which writes the foreground color at 16-bit precision (no banding).
+
 ### Background Replacement
 
 After removing the background, use the **Background** panel at the bottom:

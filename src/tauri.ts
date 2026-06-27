@@ -206,6 +206,12 @@ export async function refineEdgesHr(base64Data: string, originalPath: string): P
   return invoke<string>("refine_edges_hr", { base64Data, originalPath });
 }
 
+/** Foreground color decontamination — removes colored edge fringe. Set sixteenBit for a 16-bit PNG. */
+export async function decontaminateResult(base64Data: string, sixteenBit = false): Promise<string> {
+  const invoke = await getInvoke();
+  return invoke<string>("decontaminate_result", { base64Data, sixteenBit });
+}
+
 export async function saveImage(base64Data: string, savePath: string): Promise<void> {
   const invoke = await getInvoke();
   return invoke<void>("save_image", { base64Data, savePath });

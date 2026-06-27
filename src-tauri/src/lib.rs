@@ -63,6 +63,7 @@ pub fn run() {
             commands::get_processing_mode,
             commands::set_processing_mode,
             commands::refine_edges_hr,
+            commands::decontaminate_result,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
