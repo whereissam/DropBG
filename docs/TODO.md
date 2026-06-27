@@ -217,11 +217,11 @@ Dynamic is fg/bg segmentation, Dynamic-matting outputs a finer **alpha matte**,
 accepts arbitrary ~256–2304 px sizes/aspect ratios (no forced square resize that
 blurs hair / drops thin product edges).
 
-- [ ] Add `ModelVariant::DynamicMatting` in `downloader.rs` (name, filename `birefnet_dynamic_matting_fp16.onnx`, `is_matting_model = true`, `input_size = 0` native, `variant_key`, `from_key`, `approx_size`, `description`)
-- [ ] Add `scripts/export_dynamic_matting_onnx.py` (mirror `export_dynamic_onnx.py`, MODEL_ID `ZhengPeng7/BiRefNet_dynamic-matting`) — manual-export flow like the other dynamic/matting variants
+- [x] Add `ModelVariant::DynamicMatting` in `downloader.rs` (name, filename `birefnet_dynamic_matting_fp16.onnx`, `is_matting_model = true`, `is_dynamic = true`, `input_size = 0` native, `requires_manual_download`, `manual_download_url` → `ZhengPeng7/BiRefNet_dynamic-matting`, `approx_size` ~490 MB, `variant_key`, `from_key`). `cargo check` ✅
+- [x] Add `scripts/export_dynamic_matting_onnx.py` (mirrors `export_dynamic_onnx.py`, MODEL_ID `ZhengPeng7/BiRefNet_dynamic-matting`, dynamic H/W axes, fp16) + Settings.tsx export-script branch handles `DynamicMatting`
 - [ ] **Validate first:** confirm dynamic-shape ONNX export does not force a Core ML EP → CPU fallback before promoting it as default (see 11.2 benchmark)
-- [ ] Promote Dynamic Matting to the **Quality default**, demoting `General` to an advanced option
-- [ ] Docs sync (README / landing / USAGE) — add to lineup tables with MIT license column
+- [ ] Promote Dynamic Matting to the **Quality default**, demoting `General` to an advanced option — **blocked on the validation above**; shipped as a manual/advanced model for now
+- [x] Docs sync (README / landing / USAGE) — added to lineup tables with MIT license column
 
 ### 11.2 — Inference backend selection (Native Core ML + FP16 + auto-benchmark)
 
@@ -229,39 +229,49 @@ ORT's Core ML EP can use CPU/GPU/Neural Engine, but unsupported ops get
 partitioned back to CPU and the partitioning overhead can make it *slower* than
 plain CPU. Don't assume Native Core ML is faster either — measure per machine.
 
-- [ ] Add a Native Core ML backend: ship/convert each curated model to FP16 `.mlpackage`, compile to `.mlmodelc` on first use
-- [ ] Backend abstraction with three paths: ORT CPU fallback · ORT Core ML EP · Native Core ML
-- [ ] First-run, per-model micro-benchmark on a bundled test image; persist the fastest *correct* backend per `{model, device, precision}`:
-  ```json
-  { "model": "birefnet-dynamic-matting", "device": "MacBookPro18,3",
-    "backend": "coreml-native", "precision": "fp16",
-    "median_ms": 1780, "peak_memory_mb": 1210 }
-  ```
-- [ ] Compare warm-up-median latency, peak memory, and output-mask diff across backends; reject a faster backend whose mask diverges
+**11.2a — Backend abstraction + on-device benchmark (shipped):**
+- [x] `inference/backend.rs` — `Backend` enum (`CoreMlEp` / `Cpu`), centralized `build_session(path, backend)` (replaces the two duplicated builders in `session.rs`), `device_id()` (macOS `hw.model`), `resolve_backend()` (persisted winner or default), `backend_info()`
+- [x] Backend abstraction with the two ORT paths that exist today: ORT CPU · ORT Core ML EP (Native Core ML is a planned third candidate — see 11.2b)
+- [x] On-device micro-benchmark: warm-up + median over 3 runs per backend on a deterministic synthetic input; compares output to the CPU reference and **rejects a faster backend whose output diverges** (mean-abs-diff > 0.05); persists the fastest *correct* backend per `{variant}:{device}` in `AppConfig.backend_benchmarks`
+- [x] `get_backend_info` + `benchmark_inference_backends` Tauri commands (registered in `lib.rs`); `tauri.ts` wrappers + types; Settings → **Inference Backend** section (shows this Mac, current backend, per-backend timings, "Benchmark Backends" button). `cargo check` ✅ / `cargo test --lib` 10/10 ✅ / `bun run build` ✅
+- [x] This is the validation gate for promoting Dynamic Matting (11.1): if the dynamic-shape ONNX makes the Core ML EP partition to CPU and run slower, the benchmark now picks CPU and flags it instead of silently regressing
+
+**11.2b — Native Core ML + FP16 policy (deferred — heavier, hardware-validated):**
+- [ ] Add a Native Core ML backend: ship/convert each curated model to FP16 `.mlpackage`, compile to `.mlmodelc` on first use; add it as a third `Backend` candidate so the benchmark picks among all three
+- [ ] Add peak-memory measurement to the benchmark report (latency + output-diff are in; memory is not yet captured) and extend the persisted record toward `{ median_ms, peak_memory_mb, precision }`
 - [ ] FP16 policy: Apple Silicon default FP16; Intel Mac benchmark FP16 vs FP32; keep mask resize / normalization / compositing in FP32 to avoid alpha banding
-- [ ] (Supersedes Phase 7 "Performance benchmarks on Apple Silicon" — fold that item in here)
+- [ ] Once 11.2a/11.2b confirm Dynamic Matting's backend is a win, promote it to the Quality default (closes the held item in 11.1)
+- [x] (Supersedes Phase 7 "Performance benchmarks on Apple Silicon" — folded in here)
 
 ### 11.3 — Model picker → 4 user modes
 
 Stop leading the UI with ~10 technical model names. Surface four modes; expose
 raw model selection only under Advanced.
 
-- [ ] **Fast** → Apple Vision, fallback BiRefNet Lite
-- [ ] **Balanced** → BiRefNet Dynamic Matting
-- [ ] **Best Edges** → BiRefNet HR-matting + edge refinement
-- [ ] **Product** → BiRefNet Dynamic / General + hard-edge cleanup
-- [ ] Per-model card shows *measured* cost from 11.2, e.g. `1.8 s · 1.2 GB · Neural Engine`, plus a "Recommended for this image" hint
-- [ ] Move the full 11-model list into Advanced settings (RMBG 2.0 stays non-commercial / BYO-cloud, never a default)
+- [x] `ProcessingMode` enum in `downloader.rs` (Fast / Balanced / BestEdges / Product / Advanced) with `variant()` mapping + `uses_apple_vision()`; persisted in `AppConfig.processing_mode` (defaults to Advanced so existing configs are unchanged); `get_processing_mode` / `set_processing_mode` commands; `set_model_variant` now drops to Advanced when a raw model is picked
+- [x] **Fast** → Apple Vision (App.tsx routes Fast → `removeBackgroundAppleVision`; falls back to the downloaded model / setup flow when Vision is unavailable)
+- [x] **Balanced** → BiRefNet Dynamic Matting
+- [x] **Best Edges** → BiRefNet HR-matting *(auto edge-refinement pass is wired in 11.4, not yet auto-applied by the mode)*
+- [x] **Product** → BiRefNet Dynamic *(hard-edge cleanup pass deferred to 11.5)*
+- [x] Settings leads with 4 mode cards; the full model list is collapsed under an **Advanced — choose a specific model** disclosure (RMBG 2.0 stays in Advanced only, never a mode default)
+- [~] Per-mode card surfaces the *measured* backend from 11.2 (e.g. "Backend: Core ML…") once benchmarked. Full `1.8 s · 1.2 GB · Neural Engine` line + per-image "Recommended" hint still pending — needs the benchmark to record latency/memory per backend (11.2b) and a per-image heuristic
 
 ### 11.4 — Edge-only HR refinement (two-stage, tiled)
 
 Don't run a heavy model over a whole 6000×4000 image, and don't downscale
 everything either. Coarse mask first, then HR-matting only on uncertain edges.
 
-- [ ] Stage 1: full-subject coarse mask via 1024 / Dynamic model
-- [ ] Detect uncertain regions (hair, fur, translucency, high mask-gradient borders, mid-confidence pixels)
-- [ ] Stage 2: build high-res tiles for those regions only, run HR-matting, overlap-blend the alpha
-- [ ] Memory-friendly path so it runs on a normal MacBook, not just high-RAM machines
+Shipped as `inference/hr_refine.rs` + the `refine_edges_hr` command, exposed as an
+opt-in **"HR Edges"** button in the Toolbar (mirrors the ViTMatte "Refine" post-step,
+so the default pipeline is untouched).
+
+- [x] Stage 1: reuse the coarse mask from the already-produced cutout (alpha channel of the result)
+- [x] Detect uncertain regions: soft-alpha band (16–240), binary-dilated by 12 px, then box-blurred into a smooth 0..1 blend weight (kills the seam between coarse and refined)
+- [x] Stage 2: 512 px tiles with 128 px overlap, **only over tiles that contain uncertain pixels**; each tile is upscaled to HR-matting's 2048² input, run, and the alpha resized back; feathered (linear-ramp window) overlap-blend into a full-res accumulator
+- [x] Composite: `final = coarse·(1−u) + refined·u` so confident interior/background keeps the coarse alpha and only the edges get the heavy model
+- [x] Memory-friendly: one tile session reused across tiles, peak ≈ a single 2048² forward pass + two f32 full-res accumulators (not a full-image HR pass); errors clearly if HR-matting isn't downloaded
+- [x] `cargo check` ✅ / `cargo test --lib` 10/10 ✅ / `bun run build` ✅
+- [ ] **Follow-up (needs on-device tuning):** confirm tile/overlap/band constants on real hair/fur images; consider an "auto-apply in Best Edges mode" hook (11.3) once validated
 
 ### 11.5 — Foreground decontamination + 16-bit alpha
 
