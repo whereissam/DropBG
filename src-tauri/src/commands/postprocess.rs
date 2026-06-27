@@ -277,3 +277,41 @@ pub async fn refine_edges_hr(
     .await
     .map_err(|e| e.to_string())?
 }
+
+// ===== Foreground decontamination (Phase 11.5) =====
+
+/// Remove background-color contamination (colored fringe) from the soft edges of
+/// a cutout by estimating the true foreground color. When `sixteen_bit` is set
+/// the result is encoded as a 16-bit PNG straight from the floating-point color
+/// estimate (avoids re-quantization banding); otherwise an 8-bit PNG.
+#[tauri::command]
+pub async fn decontaminate_result(
+    base64_data: String,
+    sixteen_bit: bool,
+) -> Result<String, String> {
+    tokio::task::spawn_blocking(move || {
+        let bytes = base64::engine::general_purpose::STANDARD
+            .decode(&base64_data)
+            .map_err(|e| format!("Invalid base64: {e}"))?;
+        let rgba = image::load_from_memory(&bytes)
+            .map_err(|e| format!("Failed to decode image: {e}"))?
+            .to_rgba8();
+
+        let mut buf = Vec::new();
+        if sixteen_bit {
+            let out = crate::imaging::decontaminate::decontaminate_rgba16(&rgba);
+            image::DynamicImage::ImageRgba16(out)
+                .write_to(&mut std::io::Cursor::new(&mut buf), image::ImageFormat::Png)
+                .map_err(|e| format!("Failed to encode 16-bit PNG: {e}"))?;
+        } else {
+            let out = crate::imaging::decontaminate::decontaminate_rgba8(&rgba);
+            image::DynamicImage::ImageRgba8(out)
+                .write_to(&mut std::io::Cursor::new(&mut buf), image::ImageFormat::Png)
+                .map_err(|e| format!("Failed to encode PNG: {e}"))?;
+        }
+
+        Ok(base64::engine::general_purpose::STANDARD.encode(&buf))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}

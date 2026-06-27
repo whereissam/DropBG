@@ -154,7 +154,7 @@ impl ModelVariant {
             ModelVariant::Dynamic => "Native resolution 256-2304px, no resize artifacts (export required)",
             ModelVariant::DynamicMatting => "Native-resolution alpha mattes — finest hair/fur/edge detail at the image's own size (export required)",
             ModelVariant::HRMatting => "High-resolution alpha mattes at 2048×2048 — best for large product / portrait shots (export required)",
-            ModelVariant::BEN2 => "Best on hair & fine edges, handles complex scenes",
+            ModelVariant::BEN2 => "Experimental alternative for difficult boundaries — benchmark against BiRefNet Matting first",
             ModelVariant::RMBG2 => "BRIA's enhanced BiRefNet, excellent quality (manual download)",
             ModelVariant::InSPyReNet => "Excellent on fuzzy edges, hair strands & fine detail",
             ModelVariant::MODNet => "Lightweight, optimized for portraits (legacy)",
