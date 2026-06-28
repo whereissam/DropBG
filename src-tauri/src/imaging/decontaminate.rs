@@ -109,14 +109,29 @@ pub fn decontaminate_rgba8(img: &RgbaImage) -> RgbaImage {
 }
 
 /// Decontaminated cutout as a 16-bit RGBA image. The foreground color is encoded
-/// straight from the floating-point estimate (no re-quantization banding); alpha
-/// is promoted from the 8-bit mask (0..255 → 0..65535 via ×257).
-pub fn decontaminate_rgba16(img: &RgbaImage) -> ImageBuffer<Rgba<u16>, Vec<u16>> {
+/// straight from the floating-point estimate (no re-quantization banding).
+///
+/// When `alpha_f32` is supplied (the true full-resolution f32 alpha the model
+/// produced, 0..1, length `w*h`), the alpha channel is encoded straight from it
+/// for genuine 16-bit precision — this is the end-to-end 16-bit alpha path
+/// (Phase 11.5 follow-up). When `None` (or the override's length doesn't match
+/// the image), alpha is promoted from the 8-bit mask (0..255 → 0..65535 via
+/// ×257). Color diffusion always uses the 8-bit alpha for weighting, which is
+/// plenty for the edge-band color estimate.
+pub fn decontaminate_rgba16_with_alpha(
+    img: &RgbaImage,
+    alpha_f32: Option<&[f32]>,
+) -> ImageBuffer<Rgba<u16>, Vec<u16>> {
     let (color, alpha, w, h) = decontaminate_colors(img);
+    let hp = alpha_f32.filter(|a| a.len() == (w * h) as usize);
     let mut out = ImageBuffer::<Rgba<u16>, Vec<u16>>::new(w, h);
     for i in 0..(w * h) as usize {
         let x = (i as u32) % w;
         let y = (i as u32) / w;
+        let a16 = match hp {
+            Some(a) => (a[i].clamp(0.0, 1.0) * 65535.0).round() as u16,
+            None => alpha[i] as u16 * 257,
+        };
         out.put_pixel(
             x,
             y,
@@ -124,7 +139,7 @@ pub fn decontaminate_rgba16(img: &RgbaImage) -> ImageBuffer<Rgba<u16>, Vec<u16>>
                 (color[i * 3].clamp(0.0, 1.0) * 65535.0).round() as u16,
                 (color[i * 3 + 1].clamp(0.0, 1.0) * 65535.0).round() as u16,
                 (color[i * 3 + 2].clamp(0.0, 1.0) * 65535.0).round() as u16,
-                alpha[i] as u16 * 257,
+                a16,
             ]),
         );
     }
@@ -175,7 +190,28 @@ mod tests {
     fn sixteen_bit_alpha_is_scaled() {
         let mut img = RgbaImage::new(1, 1);
         img.put_pixel(0, 0, Rgba([255, 255, 255, 255]));
-        let out = decontaminate_rgba16(&img);
+        let out = decontaminate_rgba16_with_alpha(&img, None);
         assert_eq!(out.get_pixel(0, 0)[3], 65535);
+    }
+
+    #[test]
+    fn sixteen_bit_alpha_uses_f32_override() {
+        let mut img = RgbaImage::new(1, 1);
+        // 8-bit alpha 128 would promote to 128*257 = 32896.
+        img.put_pixel(0, 0, Rgba([255, 255, 255, 128]));
+        let out = decontaminate_rgba16_with_alpha(&img, Some(&[0.3]));
+        let a = out.get_pixel(0, 0)[3];
+        // True f32 precision: 0.3 → 19661, a value the 8-bit path can't produce.
+        assert_eq!(a, (0.3f32 * 65535.0).round() as u16);
+        assert_ne!(a, 128u16 * 257);
+    }
+
+    #[test]
+    fn sixteen_bit_alpha_override_ignored_on_length_mismatch() {
+        let mut img = RgbaImage::new(1, 1);
+        img.put_pixel(0, 0, Rgba([0, 0, 0, 200]));
+        // Wrong-length override is rejected; falls back to 8-bit promotion.
+        let out = decontaminate_rgba16_with_alpha(&img, Some(&[0.1, 0.2]));
+        assert_eq!(out.get_pixel(0, 0)[3], 200u16 * 257);
     }
 }

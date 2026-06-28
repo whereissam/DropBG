@@ -558,7 +558,27 @@ export default function Settings({ onClose, onModelDeleted, onToast, onModeChang
                   : "…"}
               </span>
             </div>
+            {backendInfo?.record && (
+              <div className="si-row">
+                <span className="si-label">Measured</span>
+                <span className="si-value">
+                  {backendInfo.record.median_ms.toFixed(0)} ms ·{" "}
+                  {backendInfo.record.peak_memory_mb > 0
+                    ? `${backendInfo.record.peak_memory_mb.toFixed(0)} MB · `
+                    : ""}
+                  {backendInfo.record.precision}
+                </span>
+              </div>
+            )}
           </div>
+
+          {backendInfo?.needs_benchmark && (
+            <p className="settings-hint text-yellow" style={{ marginTop: "0.5rem" }}>
+              This model uses dynamic / matting shapes whose ops can silently partition
+              the Core ML backend back to CPU. Run the benchmark to confirm the fastest
+              correct backend on this Mac before relying on it.
+            </p>
+          )}
 
           {benchReport && (
             <div className="settings-info" style={{ marginTop: "0.5rem" }}>
@@ -573,11 +593,23 @@ export default function Settings({ onClose, onModelDeleted, onToast, onModeChang
                       ? "failed"
                       : t.diverged
                       ? "output diverged — skipped"
-                      : `${t.median_ms.toFixed(0)} ms/run`}
+                      : `${t.median_ms.toFixed(0)} ms/run${
+                          t.peak_memory_mb > 0 ? ` · ${t.peak_memory_mb.toFixed(0)} MB` : ""
+                        }`}
                   </span>
                 </div>
               ))}
+              <div className="si-row">
+                <span className="si-label">Precision</span>
+                <span className="si-value">{benchReport.precision}</span>
+              </div>
             </div>
+          )}
+
+          {benchReport?.note && (
+            <p className="settings-hint text-yellow" style={{ marginTop: "0.5rem" }}>
+              {benchReport.note}
+            </p>
           )}
 
           <div className="settings-actions">

@@ -1,5 +1,6 @@
 use super::{emit_progress, BatchProgress};
 use crate::inference::face_detect::FaceDetectState;
+use crate::inference::hires::{HiResCutout, HiResState};
 use crate::inference::session::SessionState;
 use crate::model::downloader;
 use base64::Engine;
@@ -82,6 +83,7 @@ pub async fn remove_background(
     app: AppHandle,
     state: State<'_, SessionState>,
     face_state: State<'_, FaceDetectState>,
+    hires: State<'_, HiResState>,
     image_path: String,
 ) -> Result<String, String> {
     let path = PathBuf::from(&image_path);
@@ -94,6 +96,7 @@ pub async fn remove_background(
 
     let session_state = state.inner().clone();
     let face_detect_state = face_state.inner().clone();
+    let hires_state = hires.inner().clone();
     let app_handle = app.clone();
 
     tokio::task::spawn_blocking(move || {
@@ -129,7 +132,7 @@ pub async fn remove_background(
         }
 
         emit_progress(&app_handle, "Applying mask...", 85.0);
-        let result_img = crate::inference::postprocess::apply_mask_rect(
+        let (result_img, alpha) = crate::inference::postprocess::apply_mask_rect_hp(
             &img, &mask_data, mask_w, mask_h, orig_w, orig_h,
         )?;
 
@@ -142,8 +145,19 @@ pub async fn remove_background(
             )
             .map_err(|e| format!("Failed to encode PNG: {}", e))?;
 
+        let b64 = base64::engine::general_purpose::STANDARD.encode(&buf);
+
+        // Cache the full-resolution f32 alpha keyed to this exact preview so a
+        // later 16-bit export can use true alpha precision (Phase 11.5).
+        hires_state.store(HiResCutout {
+            preview_b64: b64.clone(),
+            width: orig_w,
+            height: orig_h,
+            alpha,
+        });
+
         emit_progress(&app_handle, "Done!", 100.0);
-        Ok(base64::engine::general_purpose::STANDARD.encode(&buf))
+        Ok(b64)
     })
     .await
     .map_err(|e| e.to_string())?

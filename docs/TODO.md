@@ -219,8 +219,8 @@ blurs hair / drops thin product edges).
 
 - [x] Add `ModelVariant::DynamicMatting` in `downloader.rs` (name, filename `birefnet_dynamic_matting_fp16.onnx`, `is_matting_model = true`, `is_dynamic = true`, `input_size = 0` native, `requires_manual_download`, `manual_download_url` → `ZhengPeng7/BiRefNet_dynamic-matting`, `approx_size` ~490 MB, `variant_key`, `from_key`). `cargo check` ✅
 - [x] Add `scripts/export_dynamic_matting_onnx.py` (mirrors `export_dynamic_onnx.py`, MODEL_ID `ZhengPeng7/BiRefNet_dynamic-matting`, dynamic H/W axes, fp16) + Settings.tsx export-script branch handles `DynamicMatting`
-- [ ] **Validate first:** confirm dynamic-shape ONNX export does not force a Core ML EP → CPU fallback before promoting it as default (see 11.2 benchmark)
-- [ ] Promote Dynamic Matting to the **Quality default**, demoting `General` to an advanced option — **blocked on the validation above**; shipped as a manual/advanced model for now
+- [x] **Validate-on-device gate wired (2026-06-28):** rather than block on a benchmark we can't run in-repo, the app now *enforces* the gate at runtime — `BackendInfo.needs_benchmark` flags dynamic/matting models that haven't been benchmarked on this Mac, Settings prompts the user to benchmark, and the benchmark rejects a Core ML backend that diverges or loses to CPU (op-partition `note`)
+- [~] Promote Dynamic Matting to the **Quality default**, demoting `General` to an advanced option — **intentionally not flipped** (decision 2026-06-28). The default stays put; the safe-promotion machinery above means switching to Balanced/DynamicMatting auto-uses the benchmark-validated backend and warns if unvalidated, with no silent CPU regression. Flip remains a one-line change once real on-device numbers justify it.
 - [x] Docs sync (README / landing / USAGE) — added to lineup tables with MIT license column
 
 ### 11.2 — Inference backend selection (Native Core ML + FP16 + auto-benchmark)
@@ -236,11 +236,11 @@ plain CPU. Don't assume Native Core ML is faster either — measure per machine.
 - [x] `get_backend_info` + `benchmark_inference_backends` Tauri commands (registered in `lib.rs`); `tauri.ts` wrappers + types; Settings → **Inference Backend** section (shows this Mac, current backend, per-backend timings, "Benchmark Backends" button). `cargo check` ✅ / `cargo test --lib` 10/10 ✅ / `bun run build` ✅
 - [x] This is the validation gate for promoting Dynamic Matting (11.1): if the dynamic-shape ONNX makes the Core ML EP partition to CPU and run slower, the benchmark now picks CPU and flags it instead of silently regressing
 
-**11.2b — Native Core ML + FP16 policy (deferred — heavier, hardware-validated):**
-- [ ] Add a Native Core ML backend: ship/convert each curated model to FP16 `.mlpackage`, compile to `.mlmodelc` on first use; add it as a third `Backend` candidate so the benchmark picks among all three
-- [ ] Add peak-memory measurement to the benchmark report (latency + output-diff are in; memory is not yet captured) and extend the persisted record toward `{ median_ms, peak_memory_mb, precision }`
-- [ ] FP16 policy: Apple Silicon default FP16; Intel Mac benchmark FP16 vs FP32; keep mask resize / normalization / compositing in FP32 to avoid alpha banding
-- [ ] Once 11.2a/11.2b confirm Dynamic Matting's backend is a win, promote it to the Quality default (closes the held item in 11.1)
+**11.2b — Native Core ML + FP16 policy (partially landed 2026-06-28):**
+- [ ] **Deferred (hardware-gated):** Native Core ML backend — ship/convert each curated model to FP16 `.mlpackage`, compile to `.mlmodelc` on first use; add it as a third `Backend` candidate. Kept ORT's Core ML EP + CPU only for now; a true native runtime needs coremltools conversion + on-device validation we can't do in-repo (decision 2026-06-28: do peak-memory + FP16 policy now, defer native).
+- [x] Peak-memory measurement in the benchmark report: a dependency-free RSS sampler (`backend.rs::MemSampler`, polls `ps -o rss=`) records peak per backend; `BackendTiming.peak_memory_mb` is reported and the winner is persisted as a rich `BackendRecord { backend, median_ms, peak_memory_mb, precision }` in `AppConfig.backend_records` (serde-default, backward-compatible). Surfaced in Settings → Inference Backend.
+- [x] FP16 policy: the curated ONNX models ship FP16, so inference is FP16 on every backend; the benchmark records `precision: "fp16"`. Mask sigmoid / resize / blur / compositing are kept in FP32 end-to-end via `postprocess::compute_alpha_f32` (also enables true 16-bit alpha — see 11.5). No FP32 ONNX variant shipped to A/B against, so precision is recorded, not compared.
+- [~] Promote Dynamic Matting to the Quality default — handled the **safe** way instead (see 11.1): the default is *not* flipped. The session builder already auto-uses the persisted benchmark winner per `{variant, device}`; `BackendInfo.needs_benchmark` + a Settings prompt now flag any unbenchmarked dynamic/matting model, and the benchmark `note` calls out a Core ML→CPU partition penalty when it happens.
 - [x] (Supersedes Phase 7 "Performance benchmarks on Apple Silicon" — folded in here)
 
 ### 11.3 — Model picker → 4 user modes
@@ -283,7 +283,8 @@ as an opt-in **"Decontaminate"** Toolbar action and a **Save → 16-bit** option
 
 - [x] Foreground color estimation + edge decontamination: alpha²-weighted color diffusion floods true foreground color from the opaque core into the soft band, suppressing the `(1−α)·B` background contribution (the green/blue hair fringe). Alpha is left untouched; only edge-band color changes. Unit-tested (4 tests, incl. "edge pulled toward foreground").
 - [x] Optional **16-bit PNG export**: the decontaminated foreground color is encoded straight from the floating-point estimate (no re-quantization banding), saved via the existing raw-bytes `save_image` path (Save → 16-bit).
-- [ ] **Follow-up:** alpha precision is still bounded by the 8-bit inference mask (16-bit alpha gains full benefit only once the f32 mask is threaded end-to-end — overlaps 11.2b). Also consider auto-running decontamination as the final step of Best Edges / Product modes (11.3 hook).
+- [x] **End-to-end 16-bit alpha (2026-06-28):** the f32 mask is now threaded all the way through. `postprocess::compute_alpha_f32` keeps the alpha in FP32 across sigmoid → hole-fill → resize → blur; `remove_background` caches that full-res f32 alpha (keyed to the exact preview base64) in `HiResState`, and the 16-bit export (`decontaminate_rgba16_with_alpha`) encodes alpha straight from it — true sub-8-bit precision, not `a8×257`. Falls back to the 8-bit promotion if the result was edited after the cutout. Unit-tested.
+- [ ] **Follow-up:** auto-run decontamination as the final step of Best Edges / Product modes (11.3 hook); extend the f32-alpha cache through auto-crop / background-replace so 16-bit stays exact after those edits too.
 
 ### 11.6 — Internal benchmark set + copy fixes
 
