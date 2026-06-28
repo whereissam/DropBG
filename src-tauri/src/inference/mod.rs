@@ -3,6 +3,7 @@ pub mod backend;
 pub mod cloud;
 pub mod cloud_usage;
 pub mod face_detect;
+pub mod hires;
 pub mod hr_refine;
 pub mod postprocess;
 pub mod preprocess;

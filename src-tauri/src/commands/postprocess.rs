@@ -284,11 +284,18 @@ pub async fn refine_edges_hr(
 /// a cutout by estimating the true foreground color. When `sixteen_bit` is set
 /// the result is encoded as a 16-bit PNG straight from the floating-point color
 /// estimate (avoids re-quantization banding); otherwise an 8-bit PNG.
+///
+/// For the 16-bit path the alpha channel is encoded from the model's true f32
+/// alpha when this exact cutout is still cached (Phase 11.5 end-to-end 16-bit);
+/// if the result was edited since the cutout, it gracefully falls back to
+/// promoting the 8-bit alpha.
 #[tauri::command]
 pub async fn decontaminate_result(
+    hires: State<'_, crate::inference::hires::HiResState>,
     base64_data: String,
     sixteen_bit: bool,
 ) -> Result<String, String> {
+    let hires_state = hires.inner().clone();
     tokio::task::spawn_blocking(move || {
         let bytes = base64::engine::general_purpose::STANDARD
             .decode(&base64_data)
@@ -296,10 +303,16 @@ pub async fn decontaminate_result(
         let rgba = image::load_from_memory(&bytes)
             .map_err(|e| format!("Failed to decode image: {e}"))?
             .to_rgba8();
+        let (w, h) = rgba.dimensions();
 
         let mut buf = Vec::new();
         if sixteen_bit {
-            let out = crate::imaging::decontaminate::decontaminate_rgba16(&rgba);
+            // True f32 alpha if this is the unmodified cutout; else 8-bit promotion.
+            let alpha = hires_state.alpha_for(&base64_data, w, h);
+            let out = crate::imaging::decontaminate::decontaminate_rgba16_with_alpha(
+                &rgba,
+                alpha.as_deref(),
+            );
             image::DynamicImage::ImageRgba16(out)
                 .write_to(&mut std::io::Cursor::new(&mut buf), image::ImageFormat::Png)
                 .map_err(|e| format!("Failed to encode 16-bit PNG: {e}"))?;

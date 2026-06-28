@@ -305,18 +305,30 @@ export async function removeBackgroundBatchCloud(
 
 // ===== Inference backend benchmark (Phase 11.2) =====
 
+export interface BackendRecord {
+  backend: string;
+  median_ms: number;
+  peak_memory_mb: number;
+  precision: string;
+}
+
 export interface BackendInfo {
   device: string;
   variant: string;
   benchmarked: boolean;
   chosen: string; // backend key, e.g. "coreml-ep" | "cpu"
   chosen_label: string;
+  precision: string;
+  /** Dynamic/matting model not yet benchmarked on this machine — prompt to benchmark. */
+  needs_benchmark: boolean;
+  record: BackendRecord | null;
 }
 
 export interface BackendTiming {
   backend: string;
   label: string;
   median_ms: number;
+  peak_memory_mb: number;
   ok: boolean;
   diverged: boolean;
   error: string | null;
@@ -326,8 +338,11 @@ export interface BenchmarkReport {
   variant: string;
   device: string;
   input_size: number;
+  precision: string;
   chosen: string;
   timings: BackendTiming[];
+  /** Caveat such as Core ML running slower than CPU (op partitioning); null when clean. */
+  note: string | null;
 }
 
 export async function getBackendInfo(): Promise<BackendInfo> {

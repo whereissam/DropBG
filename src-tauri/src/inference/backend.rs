@@ -13,16 +13,94 @@
 //!
 //! A dedicated Native Core ML path (convert each model to an FP16 `.mlpackage`,
 //! compile to `.mlmodelc`, run via Core ML directly) is planned but **not yet
-//! implemented** — see `docs/TODO.md` Phase 11.2. When it lands it becomes a
+//! implemented** — see `docs/TODO.md` Phase 11.2b. When it lands it becomes a
 //! third `Backend` candidate and the benchmark picks among all three.
+//!
+//! ## Precision policy (11.2b)
+//! The curated ONNX models ship as **FP16** weights, so inference already runs
+//! at half precision on every backend here. Apple Silicon prefers FP16 on the
+//! Neural Engine / GPU; that's the default we report. Everything *around*
+//! inference — mask resize, normalization, alpha compositing — is kept in FP32
+//! (see `postprocess::compute_alpha_f32`) to avoid alpha banding. We don't ship
+//! an FP32 ONNX variant to A/B against, so the benchmark records the precision
+//! it ran (`fp16`) rather than comparing precisions.
 
 use ndarray::Array4;
 use ort::session::Session;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
-use std::time::Instant;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::Arc;
+use std::time::{Duration, Instant};
 
 use crate::model::downloader::{self, ModelVariant};
+
+/// The precision string recorded in benchmark results.
+///
+/// The curated ONNX models ship as FP16 weights, so inference runs at FP16 on
+/// every backend here regardless of platform — Apple Silicon executes FP16
+/// natively on the Neural Engine / GPU, and on Intel ORT loads the same FP16
+/// weights. There is no FP32 ONNX variant to A/B against, so this is `"fp16"`
+/// today; it's a function so a future native FP32 path can report `"fp32"`
+/// without touching call sites.
+pub fn precision_label() -> &'static str {
+    "fp16"
+}
+
+// ===== Peak-memory sampling =====
+//
+// Measuring per-backend peak memory precisely would need mach `task_info`
+// plumbing; we get an honest, dependency-free approximation by polling the
+// process RSS (`ps -o rss=`) on a background thread while a backend runs and
+// keeping the max. It's process-wide (not backend-isolated), but since the
+// benchmark loads one session at a time the delta over the idle baseline tracks
+// that backend's footprint closely enough to compare candidates.
+
+/// Current resident set size of this process in MB, via `ps`. Returns 0.0 if the
+/// platform/command is unavailable (the field is then simply uninformative).
+fn current_rss_mb() -> f64 {
+    let pid = std::process::id();
+    std::process::Command::new("ps")
+        .args(["-o", "rss=", "-p", &pid.to_string()])
+        .output()
+        .ok()
+        .filter(|o| o.status.success())
+        .and_then(|o| String::from_utf8_lossy(&o.stdout).trim().parse::<f64>().ok())
+        .map(|kb| kb / 1024.0)
+        .unwrap_or(0.0)
+}
+
+/// Polls process RSS on a background thread and records the peak until stopped.
+struct MemSampler {
+    stop: Arc<AtomicBool>,
+    peak_kb: Arc<AtomicU64>,
+    handle: Option<std::thread::JoinHandle<()>>,
+}
+
+impl MemSampler {
+    fn start() -> Self {
+        let stop = Arc::new(AtomicBool::new(false));
+        let peak_kb = Arc::new(AtomicU64::new(0));
+        let (s, p) = (stop.clone(), peak_kb.clone());
+        let handle = std::thread::spawn(move || {
+            while !s.load(Ordering::Relaxed) {
+                let kb = (current_rss_mb() * 1024.0) as u64;
+                p.fetch_max(kb, Ordering::Relaxed);
+                std::thread::sleep(Duration::from_millis(8));
+            }
+        });
+        MemSampler { stop, peak_kb, handle: Some(handle) }
+    }
+
+    /// Stop sampling and return the peak RSS observed, in MB.
+    fn stop(mut self) -> f64 {
+        self.stop.store(true, Ordering::Relaxed);
+        if let Some(h) = self.handle.take() {
+            let _ = h.join();
+        }
+        self.peak_kb.load(Ordering::Relaxed) as f64 / 1024.0
+    }
+}
 
 /// An inference backend the benchmark can choose between.
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
@@ -124,6 +202,7 @@ pub struct BackendTiming {
     pub backend: String, // key
     pub label: String,
     pub median_ms: f64,
+    pub peak_memory_mb: f64, // peak process RSS observed while this backend ran (0 if unavailable)
     pub ok: bool,        // session built and ran
     pub diverged: bool,  // output differs from the CPU reference beyond threshold
     pub error: Option<String>,
@@ -134,8 +213,25 @@ pub struct BenchmarkReport {
     pub variant: String,
     pub device: String,
     pub input_size: u32, // size actually benchmarked (dynamic models use 1024)
+    pub precision: String, // inference precision the models ran at (fp16)
     pub chosen: String,  // chosen backend key
     pub timings: Vec<BackendTiming>,
+    /// Human-readable caveat, e.g. Core ML ran but was slower than CPU (op
+    /// partitioning penalty) so CPU was chosen. `None` when the result is clean.
+    pub note: Option<String>,
+}
+
+/// Rich, persisted benchmark record for the winning backend. Stored alongside
+/// the simple winner-key map so the UI can show latency / memory / precision
+/// without re-running, and so 11.2b's `{ median_ms, peak_memory_mb, precision }`
+/// record shape is captured. Optional on `AppConfig` (serde default) so configs
+/// written before this field load unchanged.
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct BackendRecord {
+    pub backend: String,
+    pub median_ms: f64,
+    pub peak_memory_mb: f64,
+    pub precision: String,
 }
 
 #[derive(Serialize, Clone, Debug)]
@@ -145,24 +241,45 @@ pub struct BackendInfo {
     pub benchmarked: bool,
     pub chosen: String,       // current backend key (default if not benchmarked)
     pub chosen_label: String,
+    pub precision: String,
+    /// True when the selected model is a dynamic-shape / matting model that has
+    /// not been benchmarked on this machine yet. These are the models whose ops
+    /// can silently partition the Core ML EP back to CPU, so the UI prompts the
+    /// user to benchmark before trusting the default backend.
+    pub needs_benchmark: bool,
+    /// The persisted rich record for the chosen backend, if benchmarked.
+    pub record: Option<BackendRecord>,
 }
 
 /// Current backend status for the selected model (no inference run).
 pub fn backend_info(variant: &ModelVariant) -> BackendInfo {
     let device = device_id();
-    let persisted = downloader::load_config()
-        .ok()
-        .and_then(|c| c.backend_benchmarks.get(&bench_key(variant, &device)).cloned());
+    let config = downloader::load_config().ok();
+    let key = bench_key(variant, &device);
+    let persisted = config
+        .as_ref()
+        .and_then(|c| c.backend_benchmarks.get(&key).cloned());
+    let record = config
+        .as_ref()
+        .and_then(|c| c.backend_records.get(&key).cloned());
     let chosen = persisted
         .as_deref()
         .and_then(Backend::from_key)
         .unwrap_or_default();
+    let benchmarked = persisted.is_some();
+    // Dynamic / matting models are the ones whose ops can partition the Core ML
+    // EP to CPU; flag them for benchmarking until proven on this machine.
+    let needs_benchmark =
+        !benchmarked && (variant.is_dynamic() || variant.is_matting_model());
     BackendInfo {
         device,
         variant: variant.variant_key().to_string(),
-        benchmarked: persisted.is_some(),
+        benchmarked,
         chosen: chosen.key().to_string(),
         chosen_label: chosen.label().to_string(),
+        precision: precision_label().to_string(),
+        needs_benchmark,
+        record,
     }
 }
 
@@ -191,26 +308,33 @@ fn synthetic_input(size: u32) -> Array4<f32> {
     a
 }
 
-/// Warm up once, then time `BENCH_RUNS` runs and return (median_ms, last_output).
+/// Warm up once, then time `BENCH_RUNS` runs and return
+/// `(median_ms, peak_memory_mb, last_output)`. Peak memory is sampled across the
+/// whole build+run window so it includes the loaded session's footprint.
 fn bench_one(
     model_path: &Path,
     backend: Backend,
     size: u32,
-) -> Result<(f64, Vec<f32>), String> {
-    let mut session = build_session(model_path, backend)?;
-    // Warm-up — first run pays compilation / partitioning cost we don't want to time.
-    let _ = crate::inference::run_inference(&mut session, synthetic_input(size))?;
+) -> Result<(f64, f64, Vec<f32>), String> {
+    let sampler = MemSampler::start();
+    let result = (|| {
+        let mut session = build_session(model_path, backend)?;
+        // Warm-up — first run pays compilation / partitioning cost we don't time.
+        let _ = crate::inference::run_inference(&mut session, synthetic_input(size))?;
 
-    let mut times = Vec::with_capacity(BENCH_RUNS);
-    let mut last = Vec::new();
-    for _ in 0..BENCH_RUNS {
-        let start = Instant::now();
-        last = crate::inference::run_inference(&mut session, synthetic_input(size))?;
-        times.push(start.elapsed().as_secs_f64() * 1000.0);
-    }
-    times.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
-    let median = times[times.len() / 2];
-    Ok((median, last))
+        let mut times = Vec::with_capacity(BENCH_RUNS);
+        let mut last = Vec::new();
+        for _ in 0..BENCH_RUNS {
+            let start = Instant::now();
+            last = crate::inference::run_inference(&mut session, synthetic_input(size))?;
+            times.push(start.elapsed().as_secs_f64() * 1000.0);
+        }
+        times.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+        Ok::<_, String>((times[times.len() / 2], last))
+    })();
+    let peak_mb = sampler.stop();
+    let (median, last) = result?;
+    Ok((median, peak_mb, last))
 }
 
 /// Benchmark all backend candidates for the model at `model_path` and pick the
@@ -229,7 +353,7 @@ pub fn benchmark(
 
     for &backend in Backend::candidates() {
         match bench_one(model_path, backend, size) {
-            Ok((median_ms, output)) => {
+            Ok((median_ms, peak_memory_mb, output)) => {
                 let diverged = match &reference {
                     Some(r) => mean_abs_diff(r, &output) > DIVERGENCE_THRESHOLD,
                     None => false, // first backend (CPU) is the reference
@@ -241,6 +365,7 @@ pub fn benchmark(
                     backend: backend.key().to_string(),
                     label: backend.label().to_string(),
                     median_ms,
+                    peak_memory_mb,
                     ok: true,
                     diverged,
                     error: None,
@@ -250,6 +375,7 @@ pub fn benchmark(
                 backend: backend.key().to_string(),
                 label: backend.label().to_string(),
                 median_ms: 0.0,
+                peak_memory_mb: 0.0,
                 ok: false,
                 diverged: false,
                 error: Some(e),
@@ -265,11 +391,31 @@ pub fn benchmark(
         .map(|t| t.backend.clone())
         .unwrap_or_else(|| Backend::Cpu.key().to_string());
 
+    // Explain a non-obvious outcome: the Core ML EP ran fine but lost to CPU,
+    // which is exactly the op-partitioning penalty 11.2 warns about. Surfacing
+    // it is the "safe promotion" signal for dynamic/matting models.
+    let cpu = timings.iter().find(|t| t.backend == Backend::Cpu.key());
+    let coreml = timings.iter().find(|t| t.backend == Backend::CoreMlEp.key());
+    let note = match (cpu, coreml) {
+        (Some(c), Some(m)) if m.ok && c.ok && !m.diverged && chosen == c.backend && m.median_ms > c.median_ms => {
+            Some(format!(
+                "Core ML ran but was slower than CPU ({:.0} ms vs {:.0} ms) — likely op partitioning back to CPU. Using CPU.",
+                m.median_ms, c.median_ms
+            ))
+        }
+        (_, Some(m)) if m.ok && m.diverged => {
+            Some("Core ML output diverged from the CPU reference and was rejected. Using CPU.".to_string())
+        }
+        _ => None,
+    };
+
     Ok(BenchmarkReport {
         variant: variant.variant_key().to_string(),
         device: device_id(),
         input_size: size,
+        precision: precision_label().to_string(),
         chosen,
         timings,
+        note,
     })
 }

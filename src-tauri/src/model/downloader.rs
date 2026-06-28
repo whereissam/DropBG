@@ -561,6 +561,14 @@ pub struct AppConfig {
     /// benchmark; consulted when building an ORT session.
     #[serde(default)]
     pub backend_benchmarks: std::collections::HashMap<String, String>,
+    /// Rich per-machine benchmark records, keyed identically to
+    /// `backend_benchmarks` ("{variant}:{device}") → `{ median_ms,
+    /// peak_memory_mb, precision, backend }` for the winning backend. Lets the
+    /// UI show latency / memory / precision without re-running. Optional (serde
+    /// default) so configs written before 11.2b load unchanged.
+    #[serde(default)]
+    pub backend_records:
+        std::collections::HashMap<String, crate::inference::backend::BackendRecord>,
     /// User-facing processing mode (Fast / Balanced / Best Edges / Product /
     /// Advanced). Drives the mapping to Apple Vision or a specific model.
     #[serde(default)]
@@ -606,6 +614,7 @@ impl Default for AppConfig {
             cloud_api_keys: std::collections::HashMap::new(),
             fal_ai_endpoint: FalAIEndpoint::default(),
             backend_benchmarks: std::collections::HashMap::new(),
+            backend_records: std::collections::HashMap::new(),
             processing_mode: ProcessingMode::default(),
         }
     }

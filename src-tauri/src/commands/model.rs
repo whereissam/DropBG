@@ -116,12 +116,23 @@ pub async fn benchmark_inference_backends(
         let report =
             crate::inference::backend::benchmark(&variant, &path, variant.input_size())?;
 
-        // Persist the winner for this {variant, device}.
+        // Persist the winner for this {variant, device} — both the simple key
+        // (consulted when building a session) and the rich record (latency /
+        // memory / precision, for the Settings UI).
         let mut config = downloader::load_config().map_err(|e| e.to_string())?;
-        config.backend_benchmarks.insert(
-            crate::inference::backend::bench_key(&variant, &report.device),
-            report.chosen.clone(),
-        );
+        let key = crate::inference::backend::bench_key(&variant, &report.device);
+        config.backend_benchmarks.insert(key.clone(), report.chosen.clone());
+        if let Some(w) = report.timings.iter().find(|t| t.backend == report.chosen) {
+            config.backend_records.insert(
+                key,
+                crate::inference::backend::BackendRecord {
+                    backend: w.backend.clone(),
+                    median_ms: w.median_ms,
+                    peak_memory_mb: w.peak_memory_mb,
+                    precision: report.precision.clone(),
+                },
+            );
+        }
         downloader::save_config(&config).map_err(|e| e.to_string())?;
 
         Ok(report)
