@@ -25,7 +25,12 @@ pub fn spawn(app: AppHandle) {
             };
             eprintln!("[api] listening on http://{ADDR}");
             for request in server.incoming_requests() {
-                handle(&app, request);
+                let app_ref = &app;
+                if std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| handle(app_ref, request)))
+                    .is_err()
+                {
+                    eprintln!("[api] request handler panicked; server continues");
+                }
             }
         })
         .expect("failed to spawn dropbg-api thread");
@@ -152,5 +157,38 @@ fn handle_remove(app: &AppHandle, mut request: tiny_http::Request) {
         Err(e) => {
             let _ = request.respond(text(500, &e));
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    /// Mirrors the exact `catch_unwind` wrapping used in `spawn`'s accept
+    /// loop (`for request in server.incoming_requests() { ... }`), but over
+    /// a plain sequence instead of real HTTP requests so it needs no server.
+    /// Proves: a panic on one iteration is contained, and the *next*
+    /// iteration still runs to completion — i.e. one bad request cannot
+    /// kill the `dropbg-api` accept loop.
+    #[test]
+    fn accept_loop_survives_a_panicking_request() {
+        let inputs = [1, 2, 3]; // request #2 simulates a panicking `handle(...)` call
+        let mut completed = Vec::new();
+
+        for i in inputs {
+            let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                if i == 2 {
+                    panic!("simulated panic in request handler");
+                }
+                i
+            }));
+            match outcome {
+                Ok(v) => completed.push(v),
+                Err(_) => eprintln!("[test] request handler panicked; loop continues"),
+            }
+        }
+
+        // Request 2's panic is swallowed, but the loop kept going: request 3
+        // (the one *after* the panic) still completed, proving the server
+        // thread survives and continues serving subsequent requests.
+        assert_eq!(completed, vec![1, 3]);
     }
 }

@@ -49,6 +49,7 @@
       async function doRemove(msg) {
         if (!base) {
           parent.postMessage({ pluginMessage: { type: "remove-error", requestId: msg.requestId, message: "Not connected" } }, "*");
+          runBtn.disabled = false;
           return;
         }
         statusEl.textContent = "Removing…";
@@ -66,10 +67,13 @@
         } catch (err) {
           parent.postMessage({ pluginMessage: { type: "remove-error", requestId: msg.requestId, message: "Is DropBG running?" } }, "*");
           statusEl.textContent = "Not connected.";
+        } finally {
+          runBtn.disabled = false;
         }
       }
 
       runBtn.onclick = () => {
+        runBtn.disabled = true;
         parent.postMessage({ pluginMessage: { type: "run-clicked" } }, "*");
       };
     </script>
