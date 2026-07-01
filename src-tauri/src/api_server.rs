@@ -104,8 +104,53 @@ fn handle(app: &AppHandle, request: tiny_http::Request) {
     }
 }
 
-// --- Task 3 will add: fn handle_remove(app: &AppHandle, request: tiny_http::Request) ---
-// Temporary stub so Task 2 compiles on its own:
-fn handle_remove(_app: &AppHandle, request: tiny_http::Request) {
-    let _ = request.respond(text(501, "Not implemented yet"));
+fn read_body_limited(request: &mut tiny_http::Request) -> Result<Vec<u8>, ()> {
+    if let Some(len) = request.body_length() {
+        if len > MAX_BODY {
+            return Err(());
+        }
+    }
+    let mut buf = Vec::new();
+    // Read at most MAX_BODY + 1 so we can detect an over-limit chunked body.
+    let mut reader = request.as_reader().take((MAX_BODY as u64) + 1);
+    reader.read_to_end(&mut buf).map_err(|_| ())?;
+    if buf.len() > MAX_BODY {
+        return Err(());
+    }
+    Ok(buf)
+}
+
+fn handle_remove(app: &AppHandle, mut request: tiny_http::Request) {
+    let bytes = match read_body_limited(&mut request) {
+        Ok(b) => b,
+        Err(()) => {
+            let _ = request.respond(text(413, "Image too large (max 50 MB)"));
+            return;
+        }
+    };
+    if bytes.is_empty() {
+        let _ = request.respond(text(400, "Empty body"));
+        return;
+    }
+
+    let state = app.state::<SessionState>();
+    if let Err(e) = state.ensure_loaded() {
+        let _ = request.respond(text(503, &e));
+        return;
+    }
+    let mask_size = downloader::current_variant()
+        .map(|v| v.input_size())
+        .unwrap_or(1024);
+
+    match crate::commands::process_image_bytes(state.inner(), &bytes, mask_size) {
+        Ok(png) => {
+            let resp = with_cors(Response::from_data(png).with_status_code(200)).with_header(
+                Header::from_bytes(&b"Content-Type"[..], &b"image/png"[..]).unwrap(),
+            );
+            let _ = request.respond(resp);
+        }
+        Err(e) => {
+            let _ = request.respond(text(500, &e));
+        }
+    }
 }
