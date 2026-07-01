@@ -80,7 +80,9 @@ fn handle(app: &AppHandle, request: tiny_http::Request) {
         return;
     }
 
-    if !authorized(&request) {
+    // Auth is scoped to the versioned API surface; unknown routes must still
+    // 404 even when a token is configured.
+    if url.starts_with("/v1/") && !authorized(&request) {
         let _ = request.respond(text(401, "Unauthorized"));
         return;
     }
