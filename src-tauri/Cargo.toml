@@ -23,6 +23,7 @@ dirs = "6"
 tokio = { version = "1", features = ["fs", "rt"] }
 open = "5"
 swift-rs = "1.0"
+tiny_http = "0.12"
 
 # Release builds are optimized for a small shippable binary. ONNX Runtime (the
 # bulk of the binary) is prebuilt native code, so opt-level "s" trims our Rust
