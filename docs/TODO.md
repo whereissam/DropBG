@@ -294,7 +294,7 @@ as an opt-in **"Decontaminate"** Toolbar action and a **Save → 16-bit** option
 
 ## Stretch Goals
 
-- [ ] Figma plugin companion (thin plugin → DropBG local API)
+- [x] Figma plugin companion (thin plugin → DropBG local API) — **v1 (2026-06-30):** loopback HTTP API in the Tauri app (`src-tauri/src/api_server.rs`, `127.0.0.1:8765`: `GET /v1/health`, `POST /v1/remove`) reusing the shared `process_image_bytes` inference core; serial handling, CORS, `/v1/`-scoped optional bearer auth (`DROPBG_API_TOKEN`), 50 MB body cap, panic-isolated accept loop, non-fatal on port-in-use. Dev-only Figma plugin (`figma-plugin/`, `devAllowedDomains`) health-checks the app, exports the selected node, POSTs it, and replaces the first `IMAGE` fill with the cutout (hidden `(original)` backup, double-submit guarded). Spec + plan under `docs/superpowers/`. **Still pending:** live smoke test (curl + in-Figma import), and follow-ups — friendlier 503/413 plugin messages, socket read timeout, `/v1/health` reporting the *loaded* (not configured) variant, and additional endpoints (background-replace/upscale/auto-crop/decontaminate).
 - [x] Auto model routing (YuNet face detection → BiRefNet Portrait when faces detected)
 - [x] BiRefNet-matting support (true alpha mattes for hair/fur/transparency, export script provided)
 - [x] BiRefNet Dynamic support (native resolution 256-2304px, no resize artifacts, export script provided)
