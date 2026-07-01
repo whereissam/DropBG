@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+  <body style="font:13px -apple-system,sans-serif;margin:12px;color:#333">
+    <div style="font-weight:600;margin-bottom:8px">DropBG Local</div>
+    <div id="status">Checking…</div>
+    <button id="run" style="margin-top:12px" disabled>Remove background</button>
+
+    <script>
+      const BASES = ["http://127.0.0.1:8765", "http://localhost:8765"];
+      let base = null;
+      const statusEl = document.getElementById("status");
+      const runBtn = document.getElementById("run");
+
+      async function resolveBase() {
+        for (const b of BASES) {
+          try {
+            const r = await fetch(b + "/v1/health");
+            if (r.ok) {
+              const j = await r.json();
+              base = b;
+              return j.model || "unknown";
+            }
+          } catch (_) { /* try next */ }
+        }
+        return null;
+      }
+
+      async function health() {
+        const model = await resolveBase();
+        if (model) {
+          statusEl.textContent = "Connected (model: " + model + ")";
+          runBtn.disabled = false;
+          parent.postMessage({ pluginMessage: { type: "health-ok", model } }, "*");
+        } else {
+          statusEl.textContent = "Not connected. Start DropBG and reopen.";
+          runBtn.disabled = true;
+          parent.postMessage({ pluginMessage: { type: "health-error", message: "no server on 8765" } }, "*");
+        }
+      }
+
+      // Receive messages from the main thread.
+      onmessage = (e) => {
+        const msg = e.data.pluginMessage;
+        if (!msg) return;
+        if (msg.type === "health-check") health();
+        // "remove" handled in Task 5.
+      };
+
+      runBtn.onclick = () => {
+        parent.postMessage({ pluginMessage: { type: "run-clicked" } }, "*");
+      };
+    </script>
+  </body>
+</html>
