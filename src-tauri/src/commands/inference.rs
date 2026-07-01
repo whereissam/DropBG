@@ -163,36 +163,49 @@ pub async fn remove_background(
     .map_err(|e| e.to_string())?
 }
 
+/// Core background-removal pipeline operating on in-memory image bytes.
+/// Shared by the batch command and the localhost HTTP API.
+pub fn process_image_bytes(
+    session_state: &SessionState,
+    bytes: &[u8],
+    mask_size: u32,
+) -> Result<Vec<u8>, String> {
+    let img = image::load_from_memory(bytes)
+        .map_err(|e| format!("Failed to decode image: {e}"))?;
+    let orig_w = img.width();
+    let orig_h = img.height();
+
+    let (mask_w, mask_h) = crate::inference::preprocess::resolve_mask_size(&img, mask_size);
+    let tensor = crate::inference::preprocess::preprocess(&img, mask_size)
+        .map_err(|e| e.to_string())?;
+
+    let mask_data = {
+        let mut guard = session_state
+            .session
+            .lock()
+            .map_err(|e| format!("Session lock poisoned: {e}"))?;
+        let session = guard.as_mut().ok_or("Session not initialized")?;
+        crate::inference::run_inference(session, tensor)?
+    };
+
+    let result_img = crate::inference::postprocess::apply_mask_rect(
+        &img, &mask_data, mask_w, mask_h, orig_w, orig_h,
+    )?;
+
+    let mut buf = Vec::new();
+    result_img
+        .write_to(&mut std::io::Cursor::new(&mut buf), image::ImageFormat::Png)
+        .map_err(|e| format!("Failed to encode PNG: {e}"))?;
+    Ok(buf)
+}
+
 fn process_single_image(
     session_state: &SessionState,
     path: &PathBuf,
     mask_size: u32,
 ) -> Result<Vec<u8>, String> {
-    let img = image::open(path).map_err(|e| format!("Failed to open image: {}", e))?;
-    let orig_w = img.width();
-    let orig_h = img.height();
-
-    let (mask_w, mask_h) = crate::inference::preprocess::resolve_mask_size(&img, mask_size);
-    let tensor = crate::inference::preprocess::preprocess(&img, mask_size).map_err(|e| e.to_string())?;
-
-    let mask_data = {
-        let mut guard = session_state.session.lock().map_err(|e| format!("Session lock poisoned: {e}"))?;
-        let session = guard.as_mut().ok_or("Session not initialized")?;
-        crate::inference::run_inference(session, tensor)?
-    };
-
-    let result_img =
-        crate::inference::postprocess::apply_mask_rect(&img, &mask_data, mask_w, mask_h, orig_w, orig_h)?;
-
-    let mut buf = Vec::new();
-    result_img
-        .write_to(
-            &mut std::io::Cursor::new(&mut buf),
-            image::ImageFormat::Png,
-        )
-        .map_err(|e| format!("Failed to encode PNG: {}", e))?;
-
-    Ok(buf)
+    let bytes = std::fs::read(path).map_err(|e| format!("Failed to open image: {e}"))?;
+    process_image_bytes(session_state, &bytes, mask_size)
 }
 
 #[tauri::command]
@@ -296,4 +309,39 @@ pub async fn remove_background_batch(
     })
     .await
     .map_err(|e| e.to_string())?
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::inference::session::SessionState;
+
+    // A 2x2 in-memory PNG so the test needs no fixture file on disk.
+    fn tiny_png() -> Vec<u8> {
+        let img = image::RgbaImage::from_pixel(2, 2, image::Rgba([10, 20, 30, 255]));
+        let mut buf = Vec::new();
+        image::DynamicImage::ImageRgba8(img)
+            .write_to(&mut std::io::Cursor::new(&mut buf), image::ImageFormat::Png)
+            .unwrap();
+        buf
+    }
+
+    #[test]
+    fn process_image_bytes_errors_without_session() {
+        // No model loaded -> the session guard holds None -> "Session not initialized".
+        let state = SessionState::new();
+        let err = process_image_bytes(&state, &tiny_png(), 1024).unwrap_err();
+        assert!(
+            err.contains("Session not initialized") || err.contains("Session lock"),
+            "unexpected error: {err}"
+        );
+    }
+
+    #[test]
+    fn process_image_bytes_rejects_garbage() {
+        let state = SessionState::new();
+        let err = process_image_bytes(&state, b"not an image", 1024).unwrap_err();
+        assert!(err.to_lowercase().contains("decode") || err.to_lowercase().contains("image"),
+            "unexpected error: {err}");
+    }
 }

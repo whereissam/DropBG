@@ -1,3 +1,4 @@
+mod api_server;
 mod commands;
 mod imaging;
 mod inference;
@@ -21,6 +22,10 @@ pub fn run() {
         .manage(RefineState::new())
         .manage(CloudUsageState::new())
         .manage(HiResState::new())
+        .setup(|app| {
+            api_server::spawn(app.handle().clone());
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             commands::apple_vision_available,
             commands::remove_background_apple_vision,
