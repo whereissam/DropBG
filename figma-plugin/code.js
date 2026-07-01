@@ -1,6 +1,7 @@
 figma.showUI(__html__, { width: 320, height: 160 });
 
 let reqCounter = 0;
+let activeNode = null;
 
 function firstImageFillIndex(node) {
   if (!("fills" in node) || !Array.isArray(node.fills)) return -1;
@@ -16,9 +17,31 @@ async function startRemoval() {
     figma.notify("This layer has no image fill to process.");
     return;
   }
+  activeNode = node;
   const bytes = await node.exportAsync({ format: "PNG" });
   const requestId = `r${++reqCounter}`;
   figma.ui.postMessage({ type: "remove", requestId, bytes });
+}
+
+function applyCutout(bytes) {
+  const node = activeNode;
+  if (!node) { figma.notify("No target layer."); return; }
+  const idx = firstImageFillIndex(node);
+  if (idx === -1) { figma.notify("Target layer lost its image fill."); return; }
+
+  // Hidden backup of the original (keeps its fills).
+  const backup = node.clone();
+  backup.visible = false;
+  backup.name = `${node.name} (original)`;
+
+  // Replace only the first IMAGE fill; preserve all other fills.
+  const image = figma.createImage(bytes);
+  const fills = JSON.parse(JSON.stringify(node.fills)); // clone the readonly array
+  fills[idx] = { type: "IMAGE", scaleMode: "FILL", imageHash: image.hash };
+  node.fills = fills;
+
+  figma.currentPage.selection = [node];
+  figma.notify("Background removed.");
 }
 
 figma.ui.onmessage = (msg) => {
@@ -32,8 +55,7 @@ figma.ui.onmessage = (msg) => {
     const code = msg.status ? ` (${msg.status})` : "";
     figma.notify(`Background removal failed${code}: ${msg.message}`);
   } else if (msg.type === "remove-ok") {
-    // Task 6 applies msg.bytes.
-    figma.notify("Cutout received.");
+    applyCutout(msg.bytes);
   }
 };
 
