@@ -43,8 +43,31 @@
         const msg = e.data.pluginMessage;
         if (!msg) return;
         if (msg.type === "health-check") health();
-        // "remove" handled in Task 5.
+        if (msg.type === "remove") doRemove(msg);
       };
+
+      async function doRemove(msg) {
+        if (!base) {
+          parent.postMessage({ pluginMessage: { type: "remove-error", requestId: msg.requestId, message: "Not connected" } }, "*");
+          return;
+        }
+        statusEl.textContent = "Removing…";
+        try {
+          const r = await fetch(base + "/v1/remove", { method: "POST", body: msg.bytes });
+          if (!r.ok) {
+            const errText = await r.text();
+            parent.postMessage({ pluginMessage: { type: "remove-error", requestId: msg.requestId, status: r.status, message: errText } }, "*");
+            statusEl.textContent = "Failed.";
+            return;
+          }
+          const buf = new Uint8Array(await r.arrayBuffer());
+          parent.postMessage({ pluginMessage: { type: "remove-ok", requestId: msg.requestId, bytes: buf } }, "*");
+          statusEl.textContent = "Done.";
+        } catch (err) {
+          parent.postMessage({ pluginMessage: { type: "remove-error", requestId: msg.requestId, message: "Is DropBG running?" } }, "*");
+          statusEl.textContent = "Not connected.";
+        }
+      }
 
       runBtn.onclick = () => {
         parent.postMessage({ pluginMessage: { type: "run-clicked" } }, "*");
